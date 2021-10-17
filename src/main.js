@@ -26,6 +26,7 @@ const {
   shuffleLayerConfigurations,
   debugLogs,
   extraAttributes,
+  alternateLayerConfigurations,
   extraMetadata,
   incompatible,
   forcedCombinations,
@@ -196,11 +197,14 @@ const drawBackground = () => {
   ctx.fillRect(0, 0, format.width, format.height);
 };
 
-const addMetadata = (_dna, _edition, _prefixData) => {
+const addMetadata = (_dna, _edition, _options) => {
   let dateTime = Date.now();
-  const { _prefix, _offset, _imageHash } = _prefixData;
+  const { _prefix, _offset, _imageHash, _predefinedAttributes } = _options;
 
   const combinedAttrs = [...attributesList, ...extraAttributes()];
+  if (_predefinedAttributes !== undefined) {
+    combinedAttrs.unshift(..._layerConfig.predefinedAttributes);
+  }
   const cleanedAttrs = combinedAttrs.reduce((acc, current) => {
     const x = acc.find((item) => item.trait_type === current.trait_type);
     if (!x) {
@@ -507,6 +511,40 @@ function shuffle(array) {
   return array;
 }
 
+/**
+ * given an Array of layer configuration objects, this returns a new Array,
+ * Alternating one ID from each set while the growEditionSize number controls
+ *
+ * the final length.
+ */
+const alternateIndecies = (orderedIndecies, layerConfigs) => {
+  // split the
+  const splitIndecies = layerConfigs.reduce((acc, config) => {
+    return [...acc, config.growEditionSizeTo];
+  }, []);
+
+  let groupArrays = [];
+  for (let i = 0; i < splitIndecies.length; i++) {
+    const prevIndex = splitIndecies[i - 1] ? splitIndecies[i - 1] : 0;
+    groupArrays = [
+      ...groupArrays,
+      orderedIndecies.slice(prevIndex, splitIndecies[i]),
+    ];
+  }
+
+  return braidArrays(...groupArrays);
+};
+
+const braidArrays = (...arrays) => {
+  const braided = [];
+  for (let i = 0; i < Math.max(...arrays.map((a) => a.length)); i++) {
+    arrays.forEach((array) => {
+      if (array[i] !== undefined) braided.push(array[i]);
+    });
+  }
+  return braided;
+};
+
 const startCreating = async () => {
   let layerConfigIndex = 0;
   let editionCount = 1;
@@ -522,98 +560,121 @@ const startCreating = async () => {
   if (shuffleLayerConfigurations) {
     abstractedIndexes = shuffle(abstractedIndexes);
   }
+  // REMOVE: TODO://
+  // if (alternateLayerConfigurations) {
+  //   abstractedIndexes = alternateIndecies(abstractedIndexes, layerConfigurations);
+  // }
+
   debugLogs
     ? console.log("Editions left to create: ", abstractedIndexes)
     : null;
-  while (layerConfigIndex < layerConfigurations.length) {
-    const layers = layersSetup(
-      layerConfigurations[layerConfigIndex].layersOrder
+
+  const layerSets = layerConfigurations.map((config) => {
+    return {
+      editionLimit: config.growEditionSizeTo,
+      layers: layersSetup(config),
+      ...(config.attributes !== undefined && {
+        predefinedAttributes: config.attributes,
+      }),
+    };
+  });
+  // while (layerConfigIndex < layerConfigurations.length) {
+  //   const layers = layersSetup(
+  //     layerConfigurations[layerConfigIndex]
+  //   );
+  while (
+    editionCount <=
+    layerConfigurations[layerConfigurations.length - 1].growEditionSizeTo
+  ) {
+    let layerSet = layerSets.find(
+      (layers) => editionCount <= layers.editionLimit
     );
-    while (
-      editionCount <= layerConfigurations[layerConfigIndex].growEditionSizeTo
-    ) {
-      let newDna = createDna(layers);
-      if (isDnaUnique(dnaList, newDna)) {
-        let results = constructLayerToDna(newDna, layers);
+    // choose the right layers from layer set based on alternating sequence if
+    if (alternateLayerConfigurations) {
+      // out of the total layer sets, alternate the index
+      layerSet = layerSets[editionCount % layerSets.length];
+    }
+    let newDna = createDna(layerSet.layers);
+    if (isDnaUnique(dnaList, newDna)) {
+      let results = constructLayerToDna(newDna, layers);
 
-        debugLogs ? console.log("Created DNA:", newDna) : null;
+      debugLogs ? console.log("Created DNA:", newDna) : null;
 
-        let loadedElements = [];
-        // reduce the stacked and nested layer into a single array
-        const allImages = results.reduce((images, layer) => {
-          return [...images, ...layer.selectedElements];
-        }, []);
-        allImages.forEach((layer) => {
-          loadedElements.push(loadLayerImg(layer));
-        });
+      let loadedElements = [];
+      // reduce the stacked and nested layer into a single array
+      const allImages = results.reduce((images, layer) => {
+        return [...images, ...layer.selectedElements];
+      }, []);
+      allImages.forEach((layer) => {
+        loadedElements.push(loadLayerImg(layer));
+      });
 
-        await Promise.all(loadedElements).then((renderObjectArray) => {
-          debugLogs ? console.log("Clearing canvas") : null;
-          ctx.clearRect(0, 0, format.width, format.height);
-          if (background.generate) {
-            drawBackground();
-          }
-          renderObjectArray.forEach((renderObject) => {
-            drawElement(renderObject);
-          });
-          debugLogs
-            ? console.log("Editions left to create: ", abstractedIndexes)
-            : null;
-          saveImage(abstractedIndexes[0]);
-
-          // Metadata options
-          const savedFile = fs.readFileSync(
-            `${buildDir}/images/${abstractedIndexes[0]}${
-              outputJPEG ? ".jpg" : ".png"
-            }`
-          );
-          const _imageHash = hash(savedFile);
-          // if there's a prefix for the current configIndex, then
-          // start count back at 1 for the name, only.
-          const _prefix = layerConfigurations[layerConfigIndex].namePrefix
-            ? layerConfigurations[layerConfigIndex].namePrefix
-            : null;
-          // if resetNameIndex is turned on, calculate the offset and send it
-          // with the prefix
-          let _offset = 0;
-          if (layerConfigurations[layerConfigIndex].resetNameIndex) {
-            _offset = layerConfigurations.reduce((acc, layer, index) => {
-              if (index < layerConfigIndex) {
-                acc += layer.growEditionSizeTo;
-                return acc;
-              }
-              return acc;
-            }, 0);
-          }
-          addMetadata(newDna, abstractedIndexes[0], {
-            _prefix,
-            _offset,
-            _imageHash,
-          });
-
-          saveMetaDataSingleFile(abstractedIndexes[0]);
-          console.log(
-            `Created edition: ${abstractedIndexes[0]}, with DNA: ${hash(
-              newDna
-            )}`
-          );
-        });
-        dnaList.push(newDna);
-        editionCount++;
-        abstractedIndexes.shift();
-      } else {
-        console.log("DNA exists!");
-        failedCount++;
-        if (failedCount >= uniqueDnaTorrance) {
-          console.log(
-            `You need more layers or elements to grow your edition to ${layerConfigurations[layerConfigIndex].growEditionSizeTo} artworks!`
-          );
-          process.exit();
+      await Promise.all(loadedElements).then((renderObjectArray) => {
+        debugLogs ? console.log("Clearing canvas") : null;
+        ctx.clearRect(0, 0, format.width, format.height);
+        if (background.generate) {
+          drawBackground();
         }
+        renderObjectArray.forEach((renderObject) => {
+          drawElement(renderObject);
+        });
+        debugLogs
+          ? console.log("Editions left to create: ", abstractedIndexes)
+          : null;
+        saveImage(abstractedIndexes[0]);
+
+        // Metadata options
+        const savedFile = fs.readFileSync(
+          `${buildDir}/images/${abstractedIndexes[0]}${
+            outputJPEG ? ".jpg" : ".png"
+          }`
+        );
+        const _imageHash = hash(savedFile);
+        // if there's a prefix for the current configIndex, then
+        // start count back at 1 for the name, only.
+        const _prefix = layerConfigurations[layerConfigIndex].namePrefix
+          ? layerConfigurations[layerConfigIndex].namePrefix
+          : null;
+        // if resetNameIndex is turned on, calculate the offset and send it
+        // with the prefix
+        let _offset = 0;
+        if (layerConfigurations[layerConfigIndex].resetNameIndex) {
+          _offset = layerConfigurations.reduce((acc, layer, index) => {
+            if (index < layerConfigIndex) {
+              acc += layer.growEditionSizeTo;
+              return acc;
+            }
+            return acc;
+          }, 0);
+        }
+        addMetadata(newDna, abstractedIndexes[0], {
+          _prefix,
+          _offset,
+          _imageHash,
+          _predefinedAttributes:
+            layerConfigurations[layerConfigIndex].predefinedAttributes,
+        });
+
+        saveMetaDataSingleFile(abstractedIndexes[0]);
+        console.log(
+          `Created edition: ${abstractedIndexes[0]}, with DNA: ${hash(newDna)}`
+        );
+      });
+      dnaList.push(newDna);
+      editionCount++;
+      abstractedIndexes.shift();
+    } else {
+      console.log("DNA exists!");
+      failedCount++;
+      if (failedCount >= uniqueDnaTorrance) {
+        console.log(
+          `You need more layers or elements to grow your edition to ${layerConfigurations[layerConfigIndex].growEditionSizeTo} artworks!`
+        );
+        process.exit();
       }
     }
-    layerConfigIndex++;
   }
+
   writeMetaData(JSON.stringify(metadataList, null, 2));
   writeDnaLog(JSON.stringify(dnaList, null, 2));
 };

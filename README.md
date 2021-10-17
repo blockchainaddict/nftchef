@@ -233,6 +233,18 @@ _Be sure to pass in a randomization function here, otherwise every json file wil
 
 This also supports overwriting a trait normally assigned by the layer Name/folder and file name. If you'd like to overwrite it with some other value, adding the _same_ trait in `extraMetadata` will overwrite the default trait/value in the generated metadata.
 
+# layer config set specific attribues
+
+If each layerConfiguration set needs to have specific attributes applied, per-set, add an `attributes` array in the following format to prepend those traits to the output metadata files for each generated image/metadata in _that_ set.
+
+```js
+    attributes: [{
+      trait_type: 'breed',
+      value: 'Female'
+    }],
+    layersOrder: [
+```
+
 # Trait Value Overrides
 
 🧪 BETA FEATURE

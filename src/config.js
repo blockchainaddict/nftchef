@@ -73,6 +73,7 @@ const forcedCombinations = {
 };
 
 const shuffleLayerConfigurations = false;
+const alternateLayerConfigurations = true;
 
 /**
  * In the event that a filename cannot be the trait value name, for example when
@@ -148,6 +149,7 @@ module.exports = {
   shuffleLayerConfigurations,
   debugLogs,
   extraAttributes,
+  alternateLayerConfigurations,
   extraMetadata,
   incompatible,
   forcedCombinations,
