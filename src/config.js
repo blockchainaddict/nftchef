@@ -6,7 +6,7 @@ const basePath = isLocal ? process.cwd() : path.dirname(process.execPath);
 const { MODE } = require(path.join(basePath, "src/blendMode.js"));
 
 const buildDir = path.join(basePath, "/build");
-const layersDir = path.join(basePath, "/layers");
+const layersDir = path.join(basePath, "/clipping-example");
 
 const description =
   "This is the description of your NFT project, remember to replace this";
@@ -22,24 +22,39 @@ const hashImages = true;
 
 const layerConfigurations = [
   {
-    growEditionSizeTo: 5,
-    namePrefix: "Monkey",
+    growEditionSizeTo: 12,
+    namePrefix: "Clipp",
     layersOrder: [
-      { name: "Background" },
-      { name: "Hats" },
-      { name: "Female Hair", trait: "Hair" },
+      { name: "Head" },
+      { name: "Eyes" },
+      { name: "Hair" },
+      { name: "Head Accessory" }, // Contains -CLIP layer, will clip anything below it
+
+      { name: "Clothes", blend: "destination-over" }, // things that shouldn't be clipped and need to be drawn behind, set to 'destination-over'
+      { name: "Back Accessory", blend: "destination-over" }, // things that shouldn't be clipped and need to be drawn behind, set to 'destination-over'
+
+      { name: "Shirt Accessories", blend: "source-over" }, // things that can be stacked on-top, can be listed as normal
     ],
   },
-  {
-    growEditionSizeTo: 10,
-    namePrefix: "Lion",
-    resetNameIndex: true, // this will start the Lion count at #1 instead of #6
-    layersOrder: [
-      { name: "Background" },
-      { name: "Hats" },
-      { name: "Male Hair" },
-    ],
-  },
+  // {
+  //   growEditionSizeTo: 5,
+  //   namePrefix: "Monkey",
+  //   layersOrder: [
+  //     { name: "Background" },
+  //     { name: "Hats" },
+  //     { name: "Female Hair", trait: "Hair" },
+  //   ],
+  // },
+  // {
+  //   growEditionSizeTo: 10,
+  //   namePrefix: "Lion",
+  //   resetNameIndex: true, // this will start the Lion count at #1 instead of #6
+  //   layersOrder: [
+  //     { name: "Background" },
+  //     { name: "Hats" },
+  //     { name: "Male Hair" },
+  //   ],
+  // },
 ];
 
 /**
@@ -66,7 +81,7 @@ const format = {
 
 const background = {
   generate: true,
-  brightness: "80%",
+  brightness: "70%",
 };
 
 const extraMetadata = () => [

@@ -5,6 +5,7 @@ const isLocal = typeof process.pkg === "undefined";
 const basePath = isLocal ? process.cwd() : path.dirname(process.execPath);
 const fs = require("fs");
 const keccak256 = require("keccak256");
+const { Canvas } = require("canvas");
 
 const { createCanvas, loadImage } = require(path.join(
   basePath,
@@ -88,11 +89,12 @@ const getElements = (path, layer) => {
       const extension = /\.[0-9a-zA-Z]+$/;
       const sublayer = !extension.test(i);
       const weight = getRarityWeight(i);
-
+      const clip = /(-CLIP)/.test(i); // bool if
       const blendMode = layer.blend != undefined ? layer.blend : "source-over";
       const opacity = layer.opacity != undefined ? layer.opacity : 1;
 
       const element = {
+        clip,
         sublayer,
         weight,
         blendMode,
@@ -177,6 +179,10 @@ const genColor = () => {
 };
 
 const drawBackground = () => {
+  const layerCanvas = createCanvas(format.width, format.height);
+  const layerctx = layerCanvas.getContext("2d");
+  // First draw the canvas and mask the helmet
+  ctx.globalCompositeOperation = "destination-over";
   ctx.fillStyle = genColor();
   ctx.fillRect(0, 0, format.width, format.height);
 };
@@ -239,7 +245,46 @@ const loadLayerImg = async (_layer) => {
 const drawElement = (_renderObject) => {
   ctx.globalAlpha = _renderObject.layer.opacity;
   ctx.globalCompositeOperation = _renderObject.layer.blendMode;
-  ctx.drawImage(_renderObject.loadedImage, 0, 0, format.width, format.height);
+  if (_renderObject.layer.clip) {
+    console.log("clip handler");
+    //make a new context
+    const topLayerCanvas = createCanvas(format.width, format.height);
+    const top = topLayerCanvas.getContext("2d");
+
+    const lowerLayerCanvas = createCanvas(format.width, format.height);
+    const lower = lowerLayerCanvas.getContext("2d");
+    // First draw the canvas and mask the helmet
+
+    // then draw the helmet on top
+    // then, continue to the next normal layer
+    top.drawImage(canvas, 0, 0, format.width, format.height);
+    top.globalCompositeOperation = "destination-in";
+    top.drawImage(_renderObject.loadedImage, 0, 0, format.width, format.height);
+
+    lower.drawImage(topLayerCanvas, 0, 0, format.width, format.height);
+    lower.globalCompositeOperation = "destination-in";
+    lower.drawImage(
+      _renderObject.loadedImage,
+      0,
+      0,
+      format.width,
+      format.height
+    );
+
+    // lower.globalCompositeOperation = "source-in";
+    // lower.drawImage(topLayerCanvas, 0, 0, format.width, format.height);
+    // use the clip image twice, once to 'draw in' and once again to draw over
+    ctx.globalCompositeOperation = "copy";
+    ctx.drawImage(lowerLayerCanvas, 0, 0, format.width, format.height);
+    fs.writeFileSync(
+      `${buildDir}/images/clp-${_renderObject.layer.name}${
+        outputJPEG ? ".jpg" : ".png"
+      }`,
+      topLayerCanvas.toBuffer(`${outputJPEG ? "image/jpeg" : "image/png"}`)
+    );
+  } else {
+    ctx.drawImage(_renderObject.loadedImage, 0, 0, format.width, format.height);
+  }
   addAttributes(_renderObject);
 };
 
@@ -481,15 +526,16 @@ const startCreating = async () => {
         await Promise.all(loadedElements).then((renderObjectArray) => {
           debugLogs ? console.log("Clearing canvas") : null;
           ctx.clearRect(0, 0, format.width, format.height);
-          if (background.generate) {
-            drawBackground();
-          }
+
           renderObjectArray.forEach((renderObject) => {
             drawElement(renderObject);
           });
           debugLogs
             ? console.log("Editions left to create: ", abstractedIndexes)
             : null;
+          if (background.generate) {
+            drawBackground();
+          }
           saveImage(abstractedIndexes[0]);
 
           // Metadata options
