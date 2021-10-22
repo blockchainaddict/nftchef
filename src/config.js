@@ -29,6 +29,20 @@ const solanaMetadata = {
 const layerConfigurations = [
   {
     growEditionSizeTo: 5,
+    description: "Unique Description For Layer Set A",
+    layersOrder: [
+      { name: "Background" },
+      { name: "Eyeball" },
+      { name: "Eye color" },
+      { name: "Iris" },
+      { name: "Shine" },
+      { name: "Bottom lid" },
+      { name: "Top lid" },
+    ],
+  },
+  {
+    growEditionSizeTo: 10,
+    description: "Layer B Unique Description",
     layersOrder: [
       { name: "Background" },
       { name: "Eyeball" },

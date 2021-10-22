@@ -119,11 +119,13 @@ const drawBackground = () => {
   ctx.fillRect(0, 0, format.width, format.height);
 };
 
-const addMetadata = (_dna, _edition) => {
+const addMetadata = (_dna, _edition, options = {}) => {
+  const {descriptionOverwrite} = options;
+
   let dateTime = Date.now();
   let tempMetadata = {
     name: `${namePrefix} #${_edition}`,
-    description: description,
+    description: descriptionOverwrite ? descriptionOverwrite : description,
     image: `${baseUri}/${_edition}.png`,
     dna: sha1(_dna),
     edition: _edition,
@@ -329,7 +331,11 @@ const startCreating = async () => {
             ? console.log("Editions left to create: ", abstractedIndexes)
             : null;
           saveImage(abstractedIndexes[0]);
-          addMetadata(newDna, abstractedIndexes[0]);
+
+          addMetadata(newDna, abstractedIndexes[0], {
+            ...( layerConfigurations[layerConfigIndex].description !== undefined 
+              && {descriptionOverwrite:  layerConfigurations[layerConfigIndex].description})
+          });
           saveMetaDataSingleFile(abstractedIndexes[0]);
           console.log(
             `Created edition: ${abstractedIndexes[0]}, with DNA: ${sha1(
