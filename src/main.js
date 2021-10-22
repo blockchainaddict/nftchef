@@ -5,7 +5,7 @@ const isLocal = typeof process.pkg === "undefined";
 const basePath = isLocal ? process.cwd() : path.dirname(process.execPath);
 const fs = require("fs");
 const keccak256 = require("keccak256");
-const { Canvas } = require("canvas");
+const chalk = require("chalk");
 
 const { createCanvas, loadImage } = require(path.join(
   basePath,
@@ -25,8 +25,10 @@ const {
   rarityDelimiter,
   shuffleLayerConfigurations,
   debugLogs,
+  extraAttributes,
   extraMetadata,
   incompatible,
+  forcedCombinations,
   outputJPEG,
   emptyLayerName,
   hashImages,
@@ -191,7 +193,7 @@ const addMetadata = (_dna, _edition, _prefixData) => {
   let dateTime = Date.now();
   const { _prefix, _offset, _imageHash } = _prefixData;
 
-  const combinedAttrs = [...attributesList, ...extraMetadata()];
+  const combinedAttrs = [...attributesList, ...extraAttributes()];
   const cleanedAttrs = combinedAttrs.reduce((acc, current) => {
     const x = acc.find((item) => item.trait_type === current.trait_type);
     if (!x) {
@@ -209,8 +211,9 @@ const addMetadata = (_dna, _edition, _prefixData) => {
     ...(hashImages === true && { imageHash: _imageHash }),
     edition: _edition,
     date: dateTime,
+    ...extraMetadata,
     attributes: cleanedAttrs,
-    compiler: "HashLips Art Engine",
+    compiler: "HashLips Art Engine - NFTChef fork",
   };
   metadataList.push(tempMetadata);
   attributesList = [];
@@ -246,7 +249,7 @@ const drawElement = (_renderObject) => {
   ctx.globalAlpha = _renderObject.layer.opacity;
   ctx.globalCompositeOperation = _renderObject.layer.blendMode;
   if (_renderObject.layer.clip) {
-    console.log("clip handler");
+    debugLogs ? console.log(chalk.cyan("clip handler")) : null;
     //make a new context
     const topLayerCanvas = createCanvas(format.width, format.height);
     const top = topLayerCanvas.getContext("2d");
@@ -276,12 +279,14 @@ const drawElement = (_renderObject) => {
     // use the clip image twice, once to 'draw in' and once again to draw over
     ctx.globalCompositeOperation = "copy";
     ctx.drawImage(lowerLayerCanvas, 0, 0, format.width, format.height);
-    fs.writeFileSync(
-      `${buildDir}/images/clp-${_renderObject.layer.name}${
-        outputJPEG ? ".jpg" : ".png"
-      }`,
-      topLayerCanvas.toBuffer(`${outputJPEG ? "image/jpeg" : "image/png"}`)
-    );
+    if (debugLogs) {
+      fs.writeFileSync(
+        `${buildDir}/images/_ClippinImage_${_renderObject.layer.name}${
+          outputJPEG ? ".jpg" : ".png"
+        }`,
+        topLayerCanvas.toBuffer(`${outputJPEG ? "image/jpeg" : "image/png"}`)
+      );
+    }
   } else {
     ctx.drawImage(_renderObject.loadedImage, 0, 0, format.width, format.height);
   }
@@ -339,11 +344,29 @@ const isDnaUnique = (_DnaList = [], _dna = []) => {
  * @param {Array} dnaSequence Strings of layer to object mappings to nesting structure
  * @param {Number*} parentId nested parentID, used during recursive calls for sublayers
  * @param {Array*} incompatibleDNA Used to store incompatible layer names while building DNA
+ * @param {Array*} forcedDNA Used to store forced layer selection combinations names while building DNA
  *  from the top down
  * @returns Array DNA sequence
  */
-function pickRandomElement(layer, dnaSequence, parentId, incompatibleDNA) {
+function pickRandomElement(
+  layer,
+  dnaSequence,
+  parentId,
+  incompatibleDNA,
+  forcedDNA
+) {
   let totalWeight = 0;
+  // Does this layer include a forcedDNA item? ya? just return it.
+  const forcedPick = layer.elements.find((element) =>
+    forcedDNA.includes(element.name)
+  );
+  if (forcedPick) {
+    debugLogs
+      ? console.log(chalk.yellowBright(`Force picking ${forcedPick.name}/n`))
+      : null;
+    let dnaString = `${parentId}.${forcedPick.id}:${forcedPick.filename}`;
+    return dnaSequence.push(dnaString);
+  }
 
   const compatibleLayers = layer.elements.filter(
     (layer) => !incompatibleDNA.includes(layer.name)
@@ -370,7 +393,8 @@ function pickRandomElement(layer, dnaSequence, parentId, incompatibleDNA) {
         element,
         dnaSequence,
         `${parentId}.${element.id}`,
-        incompatibleDNA
+        incompatibleDNA,
+        forcedDNA
       );
     }
     if (element.weight !== "required") {
@@ -402,6 +426,18 @@ function pickRandomElement(layer, dnaSequence, parentId, incompatibleDNA) {
           : null;
         incompatibleDNA.push(...incompatible[currentLayers[i].name]);
       }
+      // Similar to incompaticle, check for forced combos
+      if (forcedCombinations[currentLayers[i].name]) {
+        debugLogs
+          ? console.log(
+              chalk.bgYellowBright.black(
+                `\nSetting up the folling forced combinations for ${currentLayers[i].name}: `,
+                ...forcedCombinations[currentLayers[i].name]
+              )
+            )
+          : null;
+        forcedDNA.push(...forcedCombinations[currentLayers[i].name]);
+      }
       // if there's a sublayer, we need to concat the sublayers parent ID to the DNA srting
       // and recursively pick nested required and random elements
       if (currentLayers[i].sublayer) {
@@ -410,7 +446,8 @@ function pickRandomElement(layer, dnaSequence, parentId, incompatibleDNA) {
             currentLayers[i],
             dnaSequence,
             `${parentId}.${currentLayers[i].id}`,
-            incompatibleDNA
+            incompatibleDNA,
+            forcedDNA
           )
         );
       }
@@ -443,9 +480,16 @@ const sortLayers = (layers) => {
 const createDna = (_layers) => {
   let dnaSequence = [];
   let incompatibleDNA = [];
+  let forcedDNA = [];
   _layers.forEach((layer) => {
     const layerSequence = [];
-    pickRandomElement(layer, layerSequence, layer.id, incompatibleDNA);
+    pickRandomElement(
+      layer,
+      layerSequence,
+      layer.id,
+      incompatibleDNA,
+      forcedDNA
+    );
     const sortedLayers = sortLayers(layerSequence);
     dnaSequence = [...dnaSequence, [sortedLayers]];
   });

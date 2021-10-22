@@ -6,7 +6,7 @@ const basePath = isLocal ? process.cwd() : path.dirname(process.execPath);
 const { MODE } = require(path.join(basePath, "src/blendMode.js"));
 
 const buildDir = path.join(basePath, "/build");
-const layersDir = path.join(basePath, "/clipping-example");
+const layersDir = path.join(basePath, "/layers");
 
 const description =
   "This is the description of your NFT project, remember to replace this";
@@ -22,7 +22,7 @@ const hashImages = true;
 
 const layerConfigurations = [
   {
-    growEditionSizeTo: 12,
+    growEditionSizeTo: 11,
     namePrefix: "Clipp",
     layersOrder: [
       { name: "Head" },
@@ -65,9 +65,22 @@ const layerConfigurations = [
  * accidentally set incompatibilities for the _wrong_ item.
  */
 const incompatible = {
-  Red: ["Dark Long"],
-  // directory incompatible with directory example
-  White: ["rare-Pink-Pompadour"],
+  //   Red: ["Dark Long"],
+  //   // directory incompatible with directory example
+  //   White: ["rare-Pink-Pompadour"],
+};
+
+/**
+ * Require combinations of files when constructing DNA, this bypasses the
+ * randomization and weights.
+ *
+ * The layer order matters here, the key (left side) is an item within
+ * the layer that comes first in the stack.
+ * the items in the array are "required" items that should be pulled from folders
+ * further in the stack
+ */
+const forcedCombinations = {
+  // floral: ["MetallicShades", "Golden Sakura"],
 };
 
 const shuffleLayerConfigurations = false;
@@ -84,7 +97,9 @@ const background = {
   brightness: "70%",
 };
 
-const extraMetadata = () => [
+const extraMetadata = {};
+
+const extraAttributes = () => [
   // Optionally, if you need to overwrite one of your layers attributes.
   // You can include the same name as the layer, here, and it will overwrite
   //
@@ -133,8 +148,10 @@ module.exports = {
   preview,
   shuffleLayerConfigurations,
   debugLogs,
+  extraAttributes,
   extraMetadata,
   incompatible,
+  forcedCombinations,
   outputJPEG,
   emptyLayerName,
   hashImages,
