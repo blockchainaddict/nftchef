@@ -200,7 +200,7 @@ const addMetadata = (_dna, _edition, _prefixData) => {
   let dateTime = Date.now();
   const { _prefix, _offset, _imageHash } = _prefixData;
 
-  const combinedAttrs = [...attributesList, ...extraAttributes()];
+  const combinedAttrs = [...attributesList, ...extraAttributes(_edition)];
   const cleanedAttrs = combinedAttrs.reduce((acc, current) => {
     const x = acc.find((item) => item.trait_type === current.trait_type);
     if (!x) {

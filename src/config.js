@@ -68,9 +68,9 @@ const incompatible = {
  * the items in the array are "required" items that should be pulled from folders
  * further in the stack
  */
-const forcedCombinations = {
-  floral: ["MetallicShades", "Golden Sakura"],
-};
+// const forcedCombinations = {
+//   floral: ["MetallicShades", "Golden Sakura"],
+// };
 
 const shuffleLayerConfigurations = false;
 
@@ -79,10 +79,10 @@ const shuffleLayerConfigurations = false;
  * multiple items should have the same value, specify
  * clean-filename: trait-value override pairs. Wrap filenames with spaces in quotes.
  */
-const traitValueOverrides = {
-  Helmet: "Space Helmet",
-  "gold chain": "GOLDEN NECKLACE",
-};
+// const traitValueOverrides = {
+//   Helmet: "Space Helmet",
+//   "gold chain": "GOLDEN NECKLACE",
+// };
 
 const debugLogs = true;
 
@@ -98,14 +98,14 @@ const background = {
 
 const extraMetadata = {};
 
-const extraAttributes = () => [
+const extraAttributes = (_edition) => [
   // Optionally, if you need to overwrite one of your layers attributes.
   // You can include the same name as the layer, here, and it will overwrite
   //
-  // {
-  // trait_type: "Bottom lid",
-  //   value: ` Bottom lid # ${Math.random() * 100}`,
-  // },
+  {
+    trait_type: "Breed",
+    value: _edition % 2 === 0 ? "Male" : "Female",
+  },
   // {
   //   display_type: "boost_number",
   //   trait_type: "Aqua Power",
