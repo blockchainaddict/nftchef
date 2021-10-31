@@ -161,8 +161,8 @@ const processTraitOverrides = (trait) => {
   return traitValueOverrides[trait] ? traitValueOverrides[trait] : trait;
 };
 
-const layersSetup = (layersOrder) => {
-  const layers = layersOrder.map((layerObj, index) => {
+const layersSetup = (config) => {
+  const layers = config.layersOrder.map((layerObj, index) => {
     return {
       id: index,
       name: layerObj.name,
@@ -203,7 +203,7 @@ const addMetadata = (_dna, _edition, _options) => {
 
   const combinedAttrs = [...attributesList, ...extraAttributes()];
   if (_predefinedAttributes !== undefined) {
-    combinedAttrs.unshift(..._layerConfig.predefinedAttributes);
+    combinedAttrs.unshift(..._predefinedAttributes);
   }
   const cleanedAttrs = combinedAttrs.reduce((acc, current) => {
     const x = acc.find((item) => item.trait_type === current.trait_type);
@@ -592,11 +592,16 @@ const startCreating = async () => {
     // choose the right layers from layer set based on alternating sequence if
     if (alternateLayerConfigurations) {
       // out of the total layer sets, alternate the index
-      layerSet = layerSets[editionCount % layerSets.length];
+      const altIndex =
+        editionCount % layerSets.length > 0
+          ? (editionCount % layerSets.length) - 1
+          : layerSets.length - 1;
+      layerSet = layerSets[altIndex];
+      layerConfigIndex = altIndex;
     }
     let newDna = createDna(layerSet.layers);
     if (isDnaUnique(dnaList, newDna)) {
-      let results = constructLayerToDna(newDna, layers);
+      let results = constructLayerToDna(newDna, layerSet.layers);
 
       debugLogs ? console.log("Created DNA:", newDna) : null;
 
@@ -652,7 +657,7 @@ const startCreating = async () => {
           _offset,
           _imageHash,
           _predefinedAttributes:
-            layerConfigurations[layerConfigIndex].predefinedAttributes,
+            layerConfigurations[layerConfigIndex].attributes,
         });
 
         saveMetaDataSingleFile(abstractedIndexes[0]);
