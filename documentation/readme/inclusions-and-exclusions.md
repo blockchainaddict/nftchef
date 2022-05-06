@@ -45,8 +45,7 @@ Then, create an array of names that should be required.
 Note: the layer order matters here. The key (name on the left) should be a file withing a layer that comes first in the `layersOrder` configuration, then, files that are required (in the array), should be files in layers _afterward_.
 
 ### Force combination with special items
-
-In the situation where you would to have a trait that ONLY appears in forced combinations, and never picked randomly.
+If you would like to have a trait that ONLY appears in forced combinations, and is never picked randomly:
 
 Set the folder/image weight to `#0` in your layers folder,
 then configure the forced combinations as usual.
