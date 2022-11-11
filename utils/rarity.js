@@ -1,21 +1,22 @@
 "use strict";
 
-const path = require("path");
-const createCsvWriter = require("csv-writer").createObjectCsvWriter;
-
-const isLocal = typeof process.pkg === "undefined";
-const basePath = isLocal ? process.cwd() : path.dirname(process.execPath);
-const fs = require("fs");
-// const layersDir = `${basePath}/layers`;
-const layersDir = path.join(basePath, "../", "genkiFiles");
-
-const {
+import path from "path";
+import CSVWriter from "csv-writer";
+import fs from "fs";
+console.log({ CSVWriter });
+import {
   layerConfigurations,
   extraAttributes,
   rarityDelimiter,
-} = require(path.join(basePath, "/src/config.js"));
+} from "../src/config.js";
 
-const { getElements, cleanName } = require("../src/main.js");
+import { getElements } from "../src/main.js";
+import Parser from "../src/use/Parser.js";
+
+const isLocal = typeof process.pkg === "undefined";
+const basePath = isLocal ? process.cwd() : path.dirname(process.execPath);
+// const layersDir = `${basePath}/layers`;
+const layersDir = path.join(basePath, "../", "genkiFiles");
 const metadataPath = path.join(basePath, "/build/json/_metadata.json");
 
 function calculate(options = {}) {
@@ -141,7 +142,7 @@ function calculate(options = {}) {
  * @param {Array} rarityData all calculated usages and percentages
  */
 async function outputRarityCSV(rarityData) {
-  const csvWriter = createCsvWriter({
+  const csvWriter = CSVWriter.createObjectCsvWriter({
     path: path.join(basePath, "build/_rarity.csv"),
     header: [
       { id: "name", title: "Attribute" },
@@ -176,7 +177,7 @@ async function outputRarityCSV(rarityData) {
  * @param {Array[Objects]} ranking sorted ranking data
  */
 function outputRankingCSV(ranking) {
-  const csvWriter = createCsvWriter({
+  const csvWriter = CSVWriter.createObjectCsvWriter({
     path: path.join(basePath, "build/_ranking.csv"),
     header: [
       { id: "name", title: "NAME" },

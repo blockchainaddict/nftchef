@@ -1,19 +1,13 @@
 "use strict";
 
-const path = require("path");
-const isLocal = typeof process.pkg === "undefined";
-const basePath = isLocal ? process.cwd() : path.dirname(process.execPath);
-const fs = require("fs");
-const keccak256 = require("keccak256");
-const chalk = require("chalk");
-
-const { createCanvas, loadImage } = require(path.join(
-  basePath,
-  "/node_modules/canvas"
-));
-
-console.log(path.join(basePath, "/src/config.js"));
-const {
+import path from "path";
+import fs from "fs";
+import keccak256 from "keccak256";
+import chalk from "chalk";
+import pkg from "canvas";
+const { createCanvas, loadImage } = pkg;
+import Parser from "./use/Parser.js";
+import {
   background,
   baseUri,
   buildDir,
@@ -35,7 +29,12 @@ const {
   traitValueOverrides,
   uniqueDnaTorrance,
   useRootTraitType,
-} = require(path.join(basePath, "/src/config.js"));
+} from "./config.js";
+
+const isLocal = typeof process.pkg === "undefined";
+const basePath = isLocal ? process.cwd() : path.dirname(process.execPath);
+
+console.log(path.join(basePath, "/src/config.js"));
 const canvas = createCanvas(format.width, format.height);
 const ctxMain = canvas.getContext("2d");
 ctxMain.imageSmoothingEnabled = format.smoothing;
@@ -50,8 +49,6 @@ let dnaList = new Set(); // internal+external: list of all files. used for regen
 let uniqueDNAList = new Set(); // internal: post-filtered dna set for bypassDNA etc.
 const DNA_DELIMITER = "*";
 
-const zflag = /(z-?\d*,)/;
-
 const buildSetup = () => {
   if (fs.existsSync(buildDir)) {
     fs.rmdirSync(buildDir, { recursive: true });
@@ -61,56 +58,17 @@ const buildSetup = () => {
   fs.mkdirSync(path.join(buildDir, "/images"));
 };
 
-const getRarityWeight = (_path) => {
-  // check if there is an extension, if not, consider it a directory
-  const exp = new RegExp(`${rarityDelimiter}(\\d*)`, "g");
-  const weight = exp.exec(_path);
-  const weightNumber = weight ? Number(weight[1]) : -1;
+// const Parser.getRarityWeight = (_path) =>,rarityDelimiter {
+//   // check if there is an extension, if not, consider it a directory
+//   const exp = new RegExp(`${rarityDelimiter}(\\d*)`, "g");
+//   const weight = exp.exec(_path);
+//   const weightNumber = weight ? Number(weight[1]) : -1;
 
-  if (weightNumber < 0 || isNaN(weightNumber)) {
-    return "required";
-  }
-  return weightNumber;
-};
-
-const cleanDna = (_str) => {
-  var dna = _str.split(":").shift();
-  return dna;
-};
-
-const cleanName = (_str) => {
-  const hasZ = zflag.test(_str);
-
-  const zRemoved = _str.replace(zflag, "");
-
-  const extension = /\.[0-9a-zA-Z]+$/;
-  const hasExtension = extension.test(zRemoved);
-  let nameWithoutExtension = hasExtension ? zRemoved.slice(0, -4) : zRemoved;
-  var nameWithoutWeight = nameWithoutExtension.split(rarityDelimiter).shift();
-  return nameWithoutWeight;
-};
-
-const parseQueryString = (filename, layer, sublayer) => {
-  const query = /\?(.*)\./;
-  const querystring = query.exec(filename);
-  if (!querystring) {
-    return getElementOptions(layer, sublayer);
-  }
-
-  const layerstyles = querystring[1].split("&").reduce((r, setting) => {
-    const keyPairs = setting.split("=");
-    return { ...r, [keyPairs[0]]: keyPairs[1] };
-  }, []);
-
-  return {
-    blendmode: layerstyles.blend
-      ? layerstyles.blend
-      : getElementOptions(layer, sublayer).blendmode,
-    opacity: layerstyles.opacity
-      ? layerstyles.opacity / 100
-      : getElementOptions(layer, sublayer).opacity,
-  };
-};
+//   if (weightNumber < 0 || isNaN(weightNumber)) {
+//     return "required";
+//   }
+//   return weightNumber;
+// };
 
 /**
  * Given some input, creates a sha256 hash.
@@ -147,7 +105,7 @@ const getElementOptions = (layer, sublayer) => {
 };
 
 const parseZIndex = (str) => {
-  const z = zflag.exec(str);
+  const z = Parser.zflag.exec(str);
   return z ? parseInt(z[0].match(/-?\d+/)[0]) : null;
 };
 
@@ -159,15 +117,15 @@ const getElements = (path, layer) => {
       return !/(^|\/)\.[^\/\.]/g.test(item) && !invalid.test(item);
     })
     .map((i, index) => {
-      const name = cleanName(i);
+      const name = Parser.cleanName(i, rarityDelimiter);
       const extension = /\.[0-9a-zA-Z]+$/;
       const sublayer = !extension.test(i);
-      const weight = getRarityWeight(i);
+      const weight = Parser.getRarityWeight(i, rarityDelimiter);
 
-      const { blendmode, opacity } = parseQueryString(i, layer, name);
-      //pass along the zflag to any children
-      const zindex = zflag.exec(i)
-        ? zflag.exec(i)[0]
+      const { blendmode, opacity } = Parser.parseQueryString(i, layer, name);
+      //pass along the Parser.zflag to any children
+      const zindex = Parser.zflag.exec(i)
+        ? Parser.zflag.exec(i)[0]
         : layer.zindex
         ? layer.zindex
         : "";
@@ -209,7 +167,10 @@ const getElements = (path, layer) => {
         typeAncestor += 1;
       }
 
-      const parentName = cleanName(lineage[lineage.length - typeAncestor]);
+      const parentName = Parser.cleanName(
+        lineage[lineage.length - typeAncestor],
+        rarityDelimiter
+      );
 
       element.trait = layer.sublayerOptions?.[parentName]
         ? layer.sublayerOptions[parentName].trait
@@ -232,7 +193,9 @@ const getTraitValueFromPath = (element, lineage) => {
     return element.name;
   } else if (element.weight === "required") {
     // if the element is a png that is required, get the traitValue from the parent Dir
-    return element.sublayer ? true : cleanName(lineage[lineage.length - 2]);
+    return element.sublayer
+      ? true
+      : Parser.cleanName(lineage[lineage.length - 2]);
   }
 };
 
@@ -371,7 +334,7 @@ const constructLayerToDna = (_dna = [], _layers = []) => {
       (element) => element.split(".")[0] == layer.id
     );
     layerImages.forEach((img) => {
-      const indexAddress = cleanDna(img);
+      const indexAddress = Parser.cleanDna(img);
 
       //
 
@@ -655,7 +618,7 @@ const sortLayers = (layers) => {
   return sortByZ(stack.front).concat(stack.normal).concat(sortByZ(stack.end));
 };
 
-/** File String sort by zFlag */
+/** File String sort by Parser.zFlag */
 function sortByZ(dnastrings) {
   return dnastrings.sort((a, b) => {
     const indexA = parseZIndex(a);
@@ -910,12 +873,12 @@ const startCreating = async (storedDNA) => {
   writeDnaLog(JSON.stringify([...dnaList], null, 2));
 };
 
-module.exports = {
+export {
   addAttributes,
   addMetadata,
   buildSetup,
+  getElementOptions,
   constructLayerToDna,
-  cleanName,
   createDna,
   DNA_DELIMITER,
   getElements,
@@ -925,7 +888,6 @@ module.exports = {
   loadLayerImg,
   outputFiles,
   paintLayers,
-  parseQueryString,
   postProcessMetadata,
   sortZIndex,
   startCreating,
