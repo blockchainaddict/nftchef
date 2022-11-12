@@ -4,23 +4,24 @@
  * `thumbnailUri` in Tezos metadata.
  */
 
-const sharp = require("sharp");
-const fs = require("fs");
-const path = require("path");
+import sharp from "sharp";
+import fs from "fs";
+import path from "path";
+import chalk from 'chalk';
+import tezosConfig from '../../src/Tezos/tezos_config.js'
 
 const isLocal = typeof process.pkg === "undefined";
 const basePath = isLocal ? process.cwd() : path.dirname(process.execPath);
 const imagesDir = `${basePath}/build/images`;
-const tezosConfig = require(`${basePath}/Tezos/tezos_config.js`);
 
 const resizeImagePath = {
-  displayUri: path.join(basePath, "build/displayUri/"),
-  thumbnailUri: path.join(basePath, "build/thumbnailUri/"),
+  displayUri: path.join(basePath, "build/tezos/displayUri/"),
+  thumbnailUri: path.join(basePath, "build/tezos/thumbnailUri/"),
 };
 
 function getAllImages(dir) {
   if (!fs.existsSync(imagesDir)) {
-    console.log(`Images folder doesn't exist.`);
+    console.log(chalk.yellowBright(`Images folder doesn't exist.`));
     return;
   }
 
@@ -40,7 +41,7 @@ function getAllImages(dir) {
   return images;
 }
 
-function renderResizedImages(images, path, sizeW, sizeH) {
+async function renderResizedImages(images, path, sizeW, sizeH) {
   /**
    * images: A list of images.
    * path: Path to render the resized images.
@@ -55,19 +56,20 @@ function renderResizedImages(images, path, sizeW, sizeH) {
     path += `/`;
   }
 
-  images.forEach((image) => {
+  for await (const image of images){
+  // images.forEach(async (image) => {
     const newPath = `${path}${image.filename}`;
-    console.log(`Converting ${image.path}`);
-    sharp(image.path)
+    await sharp(image.path)
       .resize(sizeW, sizeH)
       .toFile(newPath, (err, info) => {
         if (!err) {
-          console.log(`✅ Rendered ${newPath}.`);
+          console.log(`Rendered ${newPath}.`);
         } else {
-          console.error(`Got error ${err}`);
+          console.error(chalk.yellow(`Got error ${err}`));
         }
       });
-  });
+  }
+  
 }
 
 const createPath = (path) => {
@@ -80,11 +82,11 @@ const createPath = (path) => {
 };
 console.log(tezosConfig.size);
 
-function transformForTez(images) {
+async function transformForTez(images) {
   // Converting for the `displayUri`.
   createPath(resizeImagePath.displayUri);
-  console.log("------------> Display", resizeImagePath.displayUri);
-  renderResizedImages(
+  console.log(chalk.bgGreen("Display", resizeImagePath.displayUri),'\n');
+  await renderResizedImages(
     images,
     resizeImagePath.displayUri,
     tezosConfig.size.displayUri.width,
@@ -93,17 +95,19 @@ function transformForTez(images) {
 
   createPath(resizeImagePath.thumbnailUri);
 
-  console.log("------------> Thumbnail", resizeImagePath.thumbnailUri);
-  renderResizedImages(
+  console.log(chalk.bgGreen("Thumbnail", resizeImagePath.thumbnailUri),'\n');
+  await renderResizedImages(
     images,
     resizeImagePath.thumbnailUri,
     tezosConfig.size.thumbnailUri.width,
     tezosConfig.size.thumbnailUri.height
   );
-  console.log(`Done!`);
 }
 
 const images = getAllImages(imagesDir);
-console.log(`Images list`);
-console.table(images);
-transformForTez(images);
+// console.log(`Images list`);
+// console.table(images);
+(async () => {
+  await transformForTez(images)
+  // console.log(chalk.bgCyanBright(`\nDone!`));
+})();

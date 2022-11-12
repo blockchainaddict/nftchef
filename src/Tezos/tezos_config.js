@@ -1,12 +1,12 @@
 /**
  * Config for generating NFTs that supports tezos standard
  */
+import path from "path";
+import { format } from "../../config.js"
 
-const path = require("path");
 const isLocal = typeof process.pkg === "undefined";
 const basePath = isLocal ? process.cwd() : path.dirname(process.execPath);
 
-const { format } = require(path.join(basePath, "src/config.js"));
 
 const NFTName = "NameOfNFT"; //This is the name there will be showen on your NFTs !!! Name can at max be 32 characters !!!
 const collectionName = "PROJECT_NAME"; //This is used if mutiple collection is needed
@@ -69,23 +69,22 @@ const size = {
  */
 const propertyCategory = "image";
 
-module.exports = {
-  symbol,
-  NFTName,
-  collectionName,
-  collectionFamily,
-  description,
-  creators,
-  external_url,
-  baseUriPrefix,
-  propertyCategory,
-
-  rights,
-  isBooleanAmount,
-  shouldPreferSymbol,
-  decimals,
-  size,
+export default {
   baseDisplayUri,
   baseThumbnailUri,
+  baseUriPrefix,
+  collectionFamily,
+  collectionName,
+  creators,
+  decimals,
+  description,
+  external_url,
+  isBooleanAmount,
+  NFTName,
+  propertyCategory,
+  rights,
   royalties,
+  shouldPreferSymbol,
+  size,
+  symbol,
 };

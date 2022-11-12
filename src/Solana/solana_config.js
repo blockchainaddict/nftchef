@@ -41,7 +41,7 @@ const creators = [
  */
 const propertyCategory = "image";
 
-module.exports = {
+export {
   symbol,
   NFTName,
   description,
