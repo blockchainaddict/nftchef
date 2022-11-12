@@ -10,32 +10,21 @@
  * the DNA (picked traits), and that DNA is left in the _dna.json file so
  * (while changes are low) that item is not recreated again.
  */
-
-const isLocal = typeof process.pkg === "undefined";
-const basePath = isLocal ? process.cwd() : path.dirname(process.execPath);
-const fs = require("fs");
-const path = require("path");
-const { Command } = require("commander");
-const program = new Command();
-const { createCanvas } = require("canvas");
-
-const chalk = require("chalk");
-
-const jsonDir = `${basePath}/build/json`;
-const imageDir = `${basePath}/build/images`;
-const dnaFilePath = `${basePath}/build/_dna.json`;
-const metadataFilePath = `${basePath}/build/json/_metadata.json`;
-
-const {
+import fs from "fs";
+import path from "path";
+import { Command } from "commander";
+import chalk from "chalk";
+import cnv from 'canvas'
+import {
   format,
   background,
   uniqueDnaTorrance,
   layerConfigurations,
   outputJPEG,
   startIndex,
-} = require(path.join(basePath, "/src/config.js"));
+} from "../config.js";
 
-const {
+import {
   createDna,
   DNA_DELIMITER,
   isDnaUnique,
@@ -45,7 +34,20 @@ const {
   loadLayerImg,
   addMetadata,
   postProcessMetadata,
-} = require(path.join(basePath, "/src/main.js"));
+} from "../src/main.js";
+
+const { createCanvas } = cnv;
+
+const isLocal = typeof process.pkg === "undefined";
+const basePath = isLocal ? process.cwd() : path.dirname(process.execPath);
+const program = new Command();
+
+
+const jsonDir = `${basePath}/build/json`;
+const imageDir = `${basePath}/build/images`;
+const dnaFilePath = `${basePath}/build/_dna.json`;
+const metadataFilePath = `${basePath}/build/json/_metadata.json`;
+
 
 let failedCount = 0;
 let attributesList = [];
@@ -54,14 +56,14 @@ const ctxMain = canvas.getContext("2d");
 
 const getDNA = () => {
   const flat = JSON.parse(fs.readFileSync(dnaFilePath));
-  return flat.map((dnaStrand) => dnaStrand.split(DNA_DELIMITER));
+  return new Set(flat);
   // .filter((item) => /^[0-9]{1,6}.json/g.test(item));
 };
 
 const createItem = (layers) => {
   let newDna = createDna(layers);
   const existingDna = getDNA();
-  if (isDnaUnique(existingDna, newDna)) {
+  if (isDnaUnique(newDna, existingDna)) {
     return { newDna, layerImages: constructLayerToDna(newDna, layers) };
   } else {
     failedCount++;
@@ -139,17 +141,19 @@ const regenerateItem = (_id, options) => {
       _background: background,
     };
     // paint layers to global canvas context.. no return value
-    paintLayers(ctxMain, renderObjectArray, layerData);
+    const outputLayerData = paintLayers(ctxMain, renderObjectArray, layerData);
     outputFiles(_id, layerData, options);
 
     // update the _dna.json
     const existingDna = getDNA();
-    const existingDnaFlat = existingDna.map((dna) => dna.join(DNA_DELIMITER));
+    // const existingDnaFlat = Array.from(existingDna).map((dna) => dna.join(DNA_DELIMITER));
 
-    const updatedDnaList = [...existingDnaFlat];
+    const updatedDnaList = Array.from(existingDna)
     // find the correct entry and update it
     const dnaIndex = _id - startIndex;
-    updatedDnaList[dnaIndex] = newDna;
+    updatedDnaList[dnaIndex] =   `${_id}/${newDna}${
+      outputLayerData.generatedBgHSL ? "___" + outputLayerData.generatedBgHSL : ""
+    }`;
 
     options.debug
       ? console.log(
@@ -177,7 +181,7 @@ program
       ? console.log(chalk.greenBright.inverse(`Regemerating #${id}`))
       : null;
 
-    regenerateItem(id, options);
+    regenerateItem(Number(id), options);
   });
 
 program.parse();

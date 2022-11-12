@@ -246,9 +246,11 @@ const genColor = () => {
 };
 
 const drawBackground = (canvasContext, background) => {
-  canvasContext.fillStyle = background.HSL ?? genColor();
+  const bgColor = background.HSL ?? genColor();
+  canvasContext.fillStyle = bgColor;
 
   canvasContext.fillRect(0, 0, format.width, format.height);
+  return bgColor;
 };
 
 const addMetadata = (_dna, _edition, _prefixData) => {
@@ -417,8 +419,11 @@ const removeQueryStrings = (_dna) => {
  * @returns isUnique is true if uniqueDNAList does NOT contain a match,
  *  false if uniqueDANList.has() is true
  */
-const isDnaUnique = (_dna = []) => {
+const isDnaUnique = (_dna = [], _list) => {
   const filtered = filterDNAOptions(_dna);
+  if (_list) {
+    return !_list.has(filterDNAOptions(_dna));
+  }
   return !uniqueDNAList.has(filterDNAOptions(_dna));
 };
 
@@ -726,14 +731,18 @@ const paintLayers = (canvasContext, renderObjectArray, layerData) => {
       format.height
     );
   });
-
+  let bgColor;
   if (_background.generate) {
     canvasContext.globalCompositeOperation = "destination-over";
-    drawBackground(canvasContext, background);
+    bgColor = drawBackground(canvasContext, background);
   }
   debugLogs
     ? console.log("Editions left to create: ", abstractedIndexes)
     : null;
+  return {
+    ...layerData,
+    generatedBgHSL: bgColor,
+  };
 };
 
 const postProcessMetadata = (layerData) => {
@@ -842,17 +851,18 @@ const startCreating = async (storedDNA) => {
             abstractedIndexes,
             _background: background,
           };
-          paintLayers(ctxMain, renderObjectArray, layerData);
+          const output = paintLayers(ctxMain, renderObjectArray, layerData);
           outputFiles(abstractedIndexes, layerData);
+
+          // prepend the same output num (abstractedIndexes[0])
+          // to the DNA as the saved files.
+          dnaList.add(
+            `${abstractedIndexes[0]}/${newDna}${
+              output.generatedBgHSL ? "___" + output.generatedBgHSL : ""
+            }`
+          );
         });
 
-        // prepend the same output num (abstractedIndexes[0])
-        // to the DNA as the saved files.
-        dnaList.add(
-          `${abstractedIndexes[0]}/${newDna}${
-            generatedBackground ? "___" + generatedBackground : ""
-          }`
-        );
         uniqueDNAList.add(filterDNAOptions(newDna));
         editionCount++;
         abstractedIndexes.shift();

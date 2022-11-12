@@ -6,15 +6,15 @@
  * (or any image/metadata combo that does NOT conflict with the generators permutation DNA checks)
  
  */
+import fs from "fs";
+import path from "path";
+import chalk from "chalk";
+import keccak256 from "keccak256";
+import { Command } from "commander";
 
 const isLocal = typeof process.pkg === "undefined";
 const basePath = isLocal ? process.cwd() : path.dirname(process.execPath);
-const fs = require("fs");
-const path = require("path");
-const { Command } = require("commander");
 const program = new Command();
-const chalk = require("chalk");
-const keccak256 = require("keccak256");
 
 const builtImageDir = `${basePath}/build/images`;
 const builtJsonDir = `${basePath}/build/json`;
