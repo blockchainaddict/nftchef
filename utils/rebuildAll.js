@@ -9,24 +9,18 @@
  * using --omit
 
  */
+import fs from "fs";
+import path from "path";
+import { Command } from "commander";
+import chalk from "chalk";
 
-const isLocal = typeof process.pkg === "undefined";
-const basePath = isLocal ? process.cwd() : path.dirname(process.execPath);
-const fs = require("fs");
-const path = require("path");
-const { Command } = require("commander");
-const program = new Command();
-const chalk = require("chalk");
-
-const { createCanvas } = require("canvas");
-
-const {
+import {
   format,
   layerConfigurations,
   background,
   outputJPEG,
-} = require("../src/config");
-const {
+} from "../config.js";
+import {
   addMetadata,
   constructLayerToDna,
   DNA_DELIMITER,
@@ -36,7 +30,14 @@ const {
   paintLayers,
   sortZIndex,
   writeMetaData,
-} = require("../src/main");
+} from "../src/main.js";
+
+import pkg from "canvas";
+const { createCanvas } = pkg;
+
+const isLocal = typeof process.pkg === "undefined";
+const basePath = isLocal ? process.cwd() : path.dirname(process.execPath);
+const program = new Command();
 
 const dnaFilePath = `${basePath}/build/_dna.json`;
 const outputDir = `${basePath}/build/rebuilt`;
@@ -163,7 +164,9 @@ const regenerate = async (dnaData, options) => {
     await Promise.all(loadedElements).then(async (renderObjectArray) => {
       // has background information?
       const bgHSL = dnaStrand.match(/(___.*)/);
-      const generateBG = eval(options.background?.replace(/\s+/g, ""));
+      const generateBG = options.background
+        ? eval(options.background?.replace(/\s+/g, ""))
+        : true;
       if (generateBG != false && bgHSL) {
         background.HSL = bgHSL[0].replace("___", "");
       }
@@ -200,9 +203,10 @@ program
   .option("-d, --debug", "display additional logging")
   .option("-v, --verbose", "display even more additional logging")
   .action(async (options, command) => {
-    const dnaData = options.source
-      ? require(path.join(basePath, options.source))
-      : require(dnaFilePath);
+    const dnaDataPath = options.source
+      ? path.join(basePath, option.source)
+      : dnaFilePath;
+    const dnaData = JSON.parse(fs.readFileSync(dnaDataPath));
 
     options.debug && options.verbose
       ? console.log("Loaed DNA data\n", dnaData)
