@@ -8,7 +8,7 @@ import {
   layerConfigurations,
   extraAttributes,
   rarityDelimiter,
-} from "../src/config.js";
+} from "../config.js";
 
 import { getElements } from "../src/main.js";
 import Parser from "../src/use/Parser.js";

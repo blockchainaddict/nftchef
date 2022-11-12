@@ -6,7 +6,7 @@ import path from "path"
 const isLocal = typeof process.pkg === "undefined";
 const basePath = isLocal ? process.cwd() : path.dirname(process.execPath);
 
-import { buildDir } from "../src/config.js";
+import { buildDir } from "../config.js";
 // Read files from the build folder defined in config.
 const metadata = JSON.parse(
   fs.readFileSync(path.join(buildDir, `/json/_metadata.json`), "utf-8")

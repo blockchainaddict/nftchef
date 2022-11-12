@@ -3,7 +3,7 @@
 import fs  from "fs";
 import path from "path";
 import pkg from 'canvas';
-import { preview } from "../src/config.js"
+import { preview } from "../config.js"
 
 const isLocal = typeof process.pkg === "undefined";
 const basePath = isLocal ? process.cwd() : path.dirname(process.execPath);

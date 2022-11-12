@@ -1,13 +1,9 @@
 {
-  "dna": "efefc005307ac4d9469ac42f566f471d7589c47de2808ebd6d7c9b06bba1a177",
   "name": "## super rare sunburn ",
   "description": "This is the description of your NFT project, remember to replace this",
   "image": "ipfs://NewUriToReplace/##.png",
   "edition": "##",
-  "date": 1635397198441,
-  "attributes": [
-
-    {
+  "attributes": [{
       "trait_type": "Head",
       "value": "Sunburn"
     },
@@ -19,10 +15,5 @@
       "trait_type": "Shirt Accessories",
       "value": "GOLDEN NECKLACE"
     }
-  ],
-  "properties": {
-    "something": "Some string with ## In the middle for trickiness",
-    "Edition": "##"
-  },
-  "compiler": "HashLips Art Engine - NFTChef fork"
+  ]
 }

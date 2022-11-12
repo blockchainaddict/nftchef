@@ -29,7 +29,7 @@ import {
   traitValueOverrides,
   uniqueDnaTorrance,
   useRootTraitType,
-} from "./config.js";
+} from "../config.js";
 
 const isLocal = typeof process.pkg === "undefined";
 const basePath = isLocal ? process.cwd() : path.dirname(process.execPath);

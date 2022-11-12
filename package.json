@@ -25,6 +25,7 @@
     "gif": "node utils/preview_gif.js",
     "update:metadata": "node utils/updateInfo.js",
     "update_info:tezos": "node tezos/updateInfo.js",
+    "provenance": "node utils/provenance.js",
     "resize": "node utils/resize.js",
     "rarity": "node utils/rarity.js",
     "test": "vitest"
