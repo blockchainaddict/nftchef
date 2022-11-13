@@ -14,7 +14,9 @@ import fs from "fs";
 import path from "path";
 import { Command } from "commander";
 import chalk from "chalk";
-import cnv from 'canvas'
+import cnv from "canvas";
+import Metadata from "../src/use/Metadata.js";
+
 import {
   format,
   background,
@@ -32,7 +34,6 @@ import {
   layersSetup,
   constructLayerToDna,
   loadLayerImg,
-  addMetadata,
   postProcessMetadata,
 } from "../src/main.js";
 
@@ -42,12 +43,10 @@ const isLocal = typeof process.pkg === "undefined";
 const basePath = isLocal ? process.cwd() : path.dirname(process.execPath);
 const program = new Command();
 
-
 const jsonDir = `${basePath}/build/json`;
 const imageDir = `${basePath}/build/images`;
 const dnaFilePath = `${basePath}/build/_dna.json`;
 const metadataFilePath = `${basePath}/build/json/_metadata.json`;
-
 
 let failedCount = 0;
 let attributesList = [];
@@ -90,7 +89,7 @@ const outputFiles = (_id, layerData, options) => {
 
   const { _imageHash, _prefix, _offset } = postProcessMetadata(layerData);
 
-  const metadata = addMetadata(newDna, abstractedIndexes[0], {
+  const metadata = Metadata.addMetadata(newDna, abstractedIndexes[0], {
     _prefix,
     _offset,
     _imageHash,
@@ -148,11 +147,13 @@ const regenerateItem = (_id, options) => {
     const existingDna = getDNA();
     // const existingDnaFlat = Array.from(existingDna).map((dna) => dna.join(DNA_DELIMITER));
 
-    const updatedDnaList = Array.from(existingDna)
+    const updatedDnaList = Array.from(existingDna);
     // find the correct entry and update it
     const dnaIndex = _id - startIndex;
-    updatedDnaList[dnaIndex] =   `${_id}/${newDna}${
-      outputLayerData.generatedBgHSL ? "___" + outputLayerData.generatedBgHSL : ""
+    updatedDnaList[dnaIndex] = `${_id}/${newDna}${
+      outputLayerData.generatedBgHSL
+        ? "___" + outputLayerData.generatedBgHSL
+        : ""
     }`;
 
     options.debug

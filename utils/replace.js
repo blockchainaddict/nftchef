@@ -11,6 +11,7 @@ import path from "path";
 import chalk from "chalk";
 import keccak256 from "keccak256";
 import { Command } from "commander";
+import Crypto from "../src/use/Crypto.js";
 
 const isLocal = typeof process.pkg === "undefined";
 const basePath = isLocal ? process.cwd() : path.dirname(process.execPath);
@@ -27,15 +28,6 @@ const getIndividualJsonFiles = (sourcePath) => {
 
 const getIndividualImageFiles = (sourcePath) => {
   return fs.readdirSync(sourcePath);
-};
-
-/**
- * Given some input, creates a sha256 hash.
- * @param {Object} input
- */
-const hash = (input) => {
-  const hashable = typeof input === Buffer ? input : JSON.stringify(input);
-  return keccak256(hashable).toString("hex");
 };
 
 /**
@@ -79,7 +71,7 @@ const replace = (image, randomID, sourcePath, options) => {
 
     const newMetadata = JSON.parse(currentData);
     // hash the image
-    const imageHash = hash(currentImage);
+    const imageHash = Crypto.hash(currentImage);
     newMetadata.imageHash = imageHash;
 
     // replace all ## with proper edition number

@@ -52,4 +52,23 @@ export default {
         : getElementOptions(layer, sublayer).opacity,
     };
   },
+
+  parseZIndex(str) {
+    const z = this.zflag.exec(str);
+    return z ? parseInt(z[0].match(/-?\d+/)[0]) : null;
+  },
+
+  /**
+   * 2022.11.12 UNUSED.
+   * Cleaning function for DNA strings. When DNA strings include an option, it
+   * is added to the filename with a ?setting=value query string. It needs to be
+   * removed to properly access the file name before Drawing.
+   *
+   * @param {String} _dna The entire newDNA string
+   * @returns Cleaned DNA string without querystring parameters.
+   */
+  removeQueryStrings(_dna) {
+    const query = /(\?.*$)/;
+    return _dna.replace(query, "");
+  },
 };

@@ -2,11 +2,13 @@
 
 import path from "path";
 import fs from "fs";
-import keccak256 from "keccak256";
 import chalk from "chalk";
 import pkg from "canvas";
 const { createCanvas, loadImage } = pkg;
 import Parser from "./use/Parser.js";
+import Metadata from "./use/Metadata.js";
+import Crypto from "./use/Crypto.js";
+
 import {
   background,
   baseUri,
@@ -39,9 +41,6 @@ const canvas = createCanvas(format.width, format.height);
 const ctxMain = canvas.getContext("2d");
 ctxMain.imageSmoothingEnabled = format.smoothing;
 
-let metadataList = [];
-let attributesList = [];
-
 // when generating a random background used to add to DNA
 let generatedBackground;
 
@@ -56,27 +55,6 @@ const buildSetup = () => {
   fs.mkdirSync(buildDir);
   fs.mkdirSync(path.join(buildDir, "/json"));
   fs.mkdirSync(path.join(buildDir, "/images"));
-};
-
-// const Parser.getRarityWeight = (_path) =>,rarityDelimiter {
-//   // check if there is an extension, if not, consider it a directory
-//   const exp = new RegExp(`${rarityDelimiter}(\\d*)`, "g");
-//   const weight = exp.exec(_path);
-//   const weightNumber = weight ? Number(weight[1]) : -1;
-
-//   if (weightNumber < 0 || isNaN(weightNumber)) {
-//     return "required";
-//   }
-//   return weightNumber;
-// };
-
-/**
- * Given some input, creates a sha256 hash.
- * @param {Object} input
- */
-const hash = (input) => {
-  const hashable = typeof input === "string" ? JSON.stringify(input) : input;
-  return keccak256(hashable).toString("hex");
 };
 
 /**
@@ -102,11 +80,6 @@ const getElementOptions = (layer, sublayer) => {
     opacity = layer.opacity != undefined ? layer.opacity : 1;
   }
   return { blendmode, opacity };
-};
-
-const parseZIndex = (str) => {
-  const z = Parser.zflag.exec(str);
-  return z ? parseInt(z[0].match(/-?\d+/)[0]) : null;
 };
 
 const getElements = (path, layer) => {
@@ -253,54 +226,6 @@ const drawBackground = (canvasContext, background) => {
   return bgColor;
 };
 
-const addMetadata = (_dna, _edition, _prefixData) => {
-  let dateTime = Date.now();
-  const { _prefix, _offset, _imageHash } = _prefixData;
-
-  const combinedAttrs = [...attributesList, ...extraAttributes()];
-  const cleanedAttrs = combinedAttrs.reduce((acc, current) => {
-    const x = acc.find((item) => item.trait_type === current.trait_type);
-    if (!x) {
-      return acc.concat([current]);
-    } else {
-      return acc;
-    }
-  }, []);
-
-  let tempMetadata = {
-    name: `${_prefix ? _prefix + " " : ""}#${_edition - _offset}`,
-    description: description,
-    image: `${baseUri}/${_edition}${outputJPEG ? ".jpg" : ".png"}`,
-    ...(hashImages === true && { imageHash: _imageHash }),
-    edition: _edition,
-    date: dateTime,
-    ...extraMetadata,
-    attributes: cleanedAttrs,
-    compiler: "HashLips Art Engine - NFTChef fork",
-  };
-  metadataList.push(tempMetadata);
-  attributesList = [];
-  return tempMetadata;
-};
-
-const addAttributes = (_element) => {
-  let selectedElement = _element.layer;
-  const layerAttributes = {
-    trait_type: _element.layer.trait,
-    value: selectedElement.traitValue,
-    ...(_element.layer.display_type !== undefined && {
-      display_type: _element.layer.display_type,
-    }),
-  };
-  if (
-    attributesList.some(
-      (attr) => attr.trait_type === layerAttributes.trait_type
-    )
-  )
-    return;
-  attributesList.push(layerAttributes);
-};
-
 const loadLayerImg = async (_layer) => {
   return new Promise(async (resolve) => {
     // selected elements is an array.
@@ -324,7 +249,7 @@ const drawElement = (_renderObject) => {
     format.height
   );
 
-  addAttributes(_renderObject);
+  Metadata.addAttributes(_renderObject);
   return layerCanvas;
 };
 
@@ -396,19 +321,6 @@ const filterDNAOptions = (_dna) => {
   });
 
   return filteredDNA.join(DNA_DELIMITER);
-};
-
-/**
- * Cleaning function for DNA strings. When DNA strings include an option, it
- * is added to the filename with a ?setting=value query string. It needs to be
- * removed to properly access the file name before Drawing.
- *
- * @param {String} _dna The entire newDNA string
- * @returns Cleaned DNA string without querystring parameters.
- */
-const removeQueryStrings = (_dna) => {
-  const query = /(\?.*$)/;
-  return _dna.replace(query, "");
 };
 
 /**
@@ -604,7 +516,7 @@ const sortLayers = (layers) => {
 
   let stack = { front: [], normal: [], end: [] };
   stack = nestedsort.reduce((acc, layer) => {
-    const zindex = parseZIndex(layer);
+    const zindex = Parser.parseZIndex(layer);
     if (!zindex)
       return { ...acc, normal: [...(acc.normal ? acc.normal : []), layer] };
     // move negative z into `front`
@@ -626,8 +538,8 @@ const sortLayers = (layers) => {
 /** File String sort by Parser.zFlag */
 function sortByZ(dnastrings) {
   return dnastrings.sort((a, b) => {
-    const indexA = parseZIndex(a);
-    const indexB = parseZIndex(b);
+    const indexA = Parser.parseZIndex(a);
+    const indexB = Parser.parseZIndex(b);
     return indexA - indexB;
   });
 }
@@ -638,8 +550,8 @@ function sortByZ(dnastrings) {
  */
 function sortZIndex(layers) {
   return layers.sort((a, b) => {
-    const indexA = parseZIndex(a.zindex);
-    const indexB = parseZIndex(b.zindex);
+    const indexA = Parser.parseZIndex(a.zindex);
+    const indexB = Parser.parseZIndex(b.zindex);
     return indexA - indexB;
   });
 }
@@ -678,7 +590,9 @@ const writeDnaLog = (_data) => {
 };
 
 const saveMetaDataSingleFile = (_editionCount, _buildDir) => {
-  let metadata = metadataList.find((meta) => meta.edition == _editionCount);
+  let metadata = Metadata.metadataList.find(
+    (meta) => meta.edition == _editionCount
+  );
   debugLogs
     ? console.log(
         `Writing metadata for ${_editionCount}: ${JSON.stringify(metadata)}`
@@ -751,7 +665,7 @@ const postProcessMetadata = (layerData) => {
   const savedFile = fs.readFileSync(
     `${buildDir}/images/${abstractedIndexes[0]}${outputJPEG ? ".jpg" : ".png"}`
   );
-  const _imageHash = hash(savedFile);
+  const _imageHash = Crypto.hash(savedFile);
 
   // if there's a prefix for the current configIndex, then
   // start count back at 1 for the name, only.
@@ -784,7 +698,7 @@ const outputFiles = (
 
   const { _imageHash, _prefix, _offset } = postProcessMetadata(layerData);
 
-  addMetadata(newDna, abstractedIndexes[0], {
+  Metadata.addMetadata(newDna, abstractedIndexes[0], {
     _prefix,
     _offset,
     _imageHash,
@@ -879,20 +793,17 @@ const startCreating = async (storedDNA) => {
     }
     layerConfigIndex++;
   }
-  writeMetaData(JSON.stringify(metadataList, null, 2));
+  writeMetaData(JSON.stringify(Metadata.metadataList, null, 2));
   writeDnaLog(JSON.stringify([...dnaList], null, 2));
 };
 
 export {
-  addAttributes,
-  addMetadata,
   buildSetup,
   getElementOptions,
   constructLayerToDna,
   createDna,
   DNA_DELIMITER,
   getElements,
-  hash,
   isDnaUnique,
   layersSetup,
   loadLayerImg,
