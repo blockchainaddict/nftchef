@@ -20,8 +20,8 @@ import {
   background,
   outputJPEG,
 } from "../config.js";
+
 import {
-  addMetadata,
   constructLayerToDna,
   DNA_DELIMITER,
   layersSetup,
@@ -29,7 +29,6 @@ import {
   outputFiles,
   paintLayers,
   sortZIndex,
-  writeMetaData,
 } from "../src/main.js";
 
 import pkg from "canvas";
