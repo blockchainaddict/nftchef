@@ -4,31 +4,22 @@ const path = require("path");
 const isLocal = typeof process.pkg === "undefined";
 const basePath = isLocal ? process.cwd() : path.dirname(process.execPath);
 const fs = require("fs");
-const keccak256 = require("keccak256");
 const chalk = require("chalk");
 
-const { createCanvas, loadImage } = require(path.join(
-  basePath,
-  "/node_modules/canvas"
-));
+const workerpool = require('workerpool');
+const pool = workerpool.pool(__dirname + '/worker.js', {
+  workerType: 'process'
+});
 
 console.log(path.join(basePath, "/src/config.js"));
 const {
-  background,
-  baseUri,
   buildDir,
   debugLogs,
-  description,
   emptyLayerName,
-  extraAttributes,
-  extraMetadata,
   forcedCombinations,
-  format,
-  hashImages,
   incompatible,
   layerConfigurations,
   layersDir,
-  outputJPEG,
   rarityDelimiter,
   shuffleLayerConfigurations,
   startIndex,
@@ -36,12 +27,6 @@ const {
   uniqueDnaTorrance,
   useRootTraitType,
 } = require(path.join(basePath, "/src/config.js"));
-const canvas = createCanvas(format.width, format.height);
-const ctxMain = canvas.getContext("2d");
-ctxMain.imageSmoothingEnabled = format.smoothing;
-
-let metadataList = [];
-let attributesList = [];
 
 // when generating a random background used to add to DNA
 let generatedBackground;
@@ -71,11 +56,6 @@ const getRarityWeight = (_path) => {
     return "required";
   }
   return weightNumber;
-};
-
-const cleanDna = (_str) => {
-  var dna = _str.split(":").shift();
-  return dna;
 };
 
 const cleanName = (_str) => {
@@ -110,15 +90,6 @@ const parseQueryString = (filename, layer, sublayer) => {
       ? layerstyles.opacity / 100
       : getElementOptions(layer, sublayer).opacity,
   };
-};
-
-/**
- * Given some input, creates a sha256 hash.
- * @param {Object} input
- */
-const hash = (input) => {
-  const hashable = typeof input === "string" ? JSON.stringify(input) : input;
-  return keccak256(hashable).toString("hex");
 };
 
 /**
@@ -169,8 +140,8 @@ const getElements = (path, layer) => {
       const zindex = zflag.exec(i)
         ? zflag.exec(i)[0]
         : layer.zindex
-        ? layer.zindex
-        : "";
+          ? layer.zindex
+          : "";
 
       const element = {
         sublayer,
@@ -214,8 +185,8 @@ const getElements = (path, layer) => {
       element.trait = layer.sublayerOptions?.[parentName]
         ? layer.sublayerOptions[parentName].trait
         : layer.trait !== undefined
-        ? layer.trait
-        : parentName;
+          ? layer.trait
+          : parentName;
 
       const rawTrait = getTraitValueFromPath(element, lineage);
       const trait = processTraitOverrides(rawTrait);
@@ -267,143 +238,6 @@ const layersSetup = (layersOrder) => {
   return layers;
 };
 
-const saveImage = (_editionCount, _buildDir, _canvas) => {
-  fs.writeFileSync(
-    `${_buildDir}/images/${_editionCount}${outputJPEG ? ".jpg" : ".png"}`,
-    _canvas.toBuffer(`${outputJPEG ? "image/jpeg" : "image/png"}`)
-  );
-};
-
-const genColor = () => {
-  let hue = Math.floor(Math.random() * 360);
-  let pastel = `hsl(${hue}, 100%, ${background.brightness})`;
-  // store the background color in the dna
-  generatedBackground = pastel; //TODO: storing in a global var is brittle. could be improved.
-  return pastel;
-};
-
-const drawBackground = (canvasContext, background) => {
-  canvasContext.fillStyle = background.HSL ?? genColor();
-
-  canvasContext.fillRect(0, 0, format.width, format.height);
-};
-
-const addMetadata = (_dna, _edition, _prefixData) => {
-  let dateTime = Date.now();
-  const { _prefix, _offset, _imageHash } = _prefixData;
-
-  const combinedAttrs = [...attributesList, ...extraAttributes()];
-  const cleanedAttrs = combinedAttrs.reduce((acc, current) => {
-    const x = acc.find((item) => item.trait_type === current.trait_type);
-    if (!x) {
-      return acc.concat([current]);
-    } else {
-      return acc;
-    }
-  }, []);
-
-  let tempMetadata = {
-    name: `${_prefix ? _prefix + " " : ""}#${_edition - _offset}`,
-    description: description,
-    image: `${baseUri}/${_edition}${outputJPEG ? ".jpg" : ".png"}`,
-    ...(hashImages === true && { imageHash: _imageHash }),
-    edition: _edition,
-    date: dateTime,
-    ...extraMetadata,
-    attributes: cleanedAttrs,
-    compiler: "HashLips Art Engine - NFTChef fork",
-  };
-  metadataList.push(tempMetadata);
-  attributesList = [];
-  return tempMetadata;
-};
-
-const addAttributes = (_element) => {
-  let selectedElement = _element.layer;
-  const layerAttributes = {
-    trait_type: _element.layer.trait,
-    value: selectedElement.traitValue,
-    ...(_element.layer.display_type !== undefined && {
-      display_type: _element.layer.display_type,
-    }),
-  };
-  if (
-    attributesList.some(
-      (attr) => attr.trait_type === layerAttributes.trait_type
-    )
-  )
-    return;
-  attributesList.push(layerAttributes);
-};
-
-const loadLayerImg = async (_layer) => {
-  return new Promise(async (resolve) => {
-    // selected elements is an array.
-    const image = await loadImage(`${_layer.path}`).catch((err) =>
-      console.log(chalk.redBright(`failed to load ${_layer.path}`, err))
-    );
-    resolve({ layer: _layer, loadedImage: image });
-  });
-};
-
-const drawElement = (_renderObject) => {
-  const layerCanvas = createCanvas(format.width, format.height);
-  const layerctx = layerCanvas.getContext("2d");
-  layerctx.imageSmoothingEnabled = format.smoothing;
-
-  layerctx.drawImage(
-    _renderObject.loadedImage,
-    0,
-    0,
-    format.width,
-    format.height
-  );
-
-  addAttributes(_renderObject);
-  return layerCanvas;
-};
-
-const constructLayerToDna = (_dna = [], _layers = []) => {
-  const dna = _dna.split(DNA_DELIMITER);
-  let mappedDnaToLayers = _layers.map((layer, index) => {
-    let selectedElements = [];
-    const layerImages = dna.filter(
-      (element) => element.split(".")[0] == layer.id
-    );
-    layerImages.forEach((img) => {
-      const indexAddress = cleanDna(img);
-
-      //
-
-      const indices = indexAddress.toString().split(".");
-      // const firstAddress = indices.shift();
-      const lastAddress = indices.pop(); // 1
-      // recursively go through each index to get the nested item
-      let parentElement = indices.reduce((r, nestedIndex) => {
-        if (!r[nestedIndex]) {
-          throw new Error("wtf");
-        }
-        return r[nestedIndex].elements;
-      }, _layers); //returns string, need to return
-
-      selectedElements.push(parentElement[lastAddress]);
-    });
-    // If there is more than one item whose root address indicies match the layer ID,
-    // continue to loop through them an return an array of selectedElements
-
-    return {
-      name: layer.name,
-      blendmode: layer.blendmode,
-      opacity: layer.opacity,
-      selectedElements: selectedElements,
-      ...(layer.display_type !== undefined && {
-        display_type: layer.display_type,
-      }),
-    };
-  });
-  return mappedDnaToLayers;
-};
-
 /**
  * In some cases a DNA string may contain optional query parameters for options
  * such as bypassing the DNA isUnique check, this function filters out those
@@ -431,19 +265,6 @@ const filterDNAOptions = (_dna) => {
   });
 
   return filteredDNA.join(DNA_DELIMITER);
-};
-
-/**
- * Cleaning function for DNA strings. When DNA strings include an option, it
- * is added to the filename with a ?setting=value query string. It needs to be
- * removed to properly access the file name before Drawing.
- *
- * @param {String} _dna The entire newDNA string
- * @returns Cleaned DNA string without querystring parameters.
- */
-const removeQueryStrings = (_dna) => {
-  const query = /(\?.*$)/;
-  return _dna.replace(query, "");
 };
 
 /**
@@ -510,9 +331,9 @@ function pickRandomElement(
   if (incompatibleDNA.includes(layer.name) && layer.sublayer) {
     debugLogs
       ? console.log(
-          `Skipping incompatible sublayer directory, ${layer.name}`,
-          layer.name
-        )
+        `Skipping incompatible sublayer directory, ${layer.name}`,
+        layer.name
+      )
       : null;
     return dnaSequence;
   }
@@ -523,11 +344,11 @@ function pickRandomElement(
   if (compatibleLayers.length === 0) {
     debugLogs
       ? console.log(
-          chalk.yellow(
-            "No compatible layers in the directory, skipping",
-            layer.name
-          )
+        chalk.yellow(
+          "No compatible layers in the directory, skipping",
+          layer.name
         )
+      )
       : null;
     return dnaSequence;
   }
@@ -576,9 +397,9 @@ function pickRandomElement(
       if (incompatible[currentLayers[i].name]) {
         debugLogs
           ? console.log(
-              `Adding the following to incompatible list`,
-              ...incompatible[currentLayers[i].name]
-            )
+            `Adding the following to incompatible list`,
+            ...incompatible[currentLayers[i].name]
+          )
           : null;
         incompatibleDNA.push(...incompatible[currentLayers[i].name]);
       }
@@ -586,11 +407,11 @@ function pickRandomElement(
       if (forcedCombinations[currentLayers[i].name]) {
         debugLogs
           ? console.log(
-              chalk.bgYellowBright.black(
-                `\nSetting up the folling forced combinations for ${currentLayers[i].name}: `,
-                ...forcedCombinations[currentLayers[i].name]
-              )
+            chalk.bgYellowBright.black(
+              `\nSetting up the folling forced combinations for ${currentLayers[i].name}: `,
+              ...forcedCombinations[currentLayers[i].name]
             )
+          )
           : null;
         forcedDNA.push(...forcedCombinations[currentLayers[i].name]);
       }
@@ -664,17 +485,7 @@ function sortByZ(dnastrings) {
   });
 }
 
-/**
- * Sorting by index based on the layer.z property
- * @param {Array } layers selected Image layer objects array
- */
-function sortZIndex(layers) {
-  return layers.sort((a, b) => {
-    const indexA = parseZIndex(a.zindex);
-    const indexB = parseZIndex(b.zindex);
-    return indexA - indexB;
-  });
-}
+
 
 const createDna = (_layers) => {
   let dnaSequence = [];
@@ -709,18 +520,7 @@ const writeDnaLog = (_data) => {
   fs.writeFileSync(`${buildDir}/_dna.json`, _data);
 };
 
-const saveMetaDataSingleFile = (_editionCount, _buildDir) => {
-  let metadata = metadataList.find((meta) => meta.edition == _editionCount);
-  debugLogs
-    ? console.log(
-        `Writing metadata for ${_editionCount}: ${JSON.stringify(metadata)}`
-      )
-    : null;
-  fs.writeFileSync(
-    `${_buildDir}/json/${_editionCount}.json`,
-    JSON.stringify(metadata, null, 2)
-  );
-};
+
 
 function shuffle(array) {
   let currentIndex = array.length,
@@ -736,91 +536,6 @@ function shuffle(array) {
   return array;
 }
 
-/**
- * Paints the given renderOjects to the main canvas context.
- *
- * @param {Array} renderObjectArray Array of render elements to draw to canvas
- * @param {Object} layerData data passed from the current iteration of the loop or configured dna-set
- *
- */
-const paintLayers = (canvasContext, renderObjectArray, layerData) => {
-  debugLogs ? console.log("\nClearing canvas") : null;
-  canvasContext.clearRect(0, 0, format.width, format.height);
-
-  const { abstractedIndexes, _background } = layerData;
-
-  renderObjectArray.forEach((renderObject) => {
-    // one main canvas
-    // each render Object should be a solo canvas
-    // append them all to main canbas
-    canvasContext.globalAlpha = renderObject.layer.opacity;
-    canvasContext.globalCompositeOperation = renderObject.layer.blendmode;
-    canvasContext.drawImage(
-      drawElement(renderObject),
-      0,
-      0,
-      format.width,
-      format.height
-    );
-  });
-
-  if (_background.generate) {
-    canvasContext.globalCompositeOperation = "destination-over";
-    drawBackground(canvasContext, background);
-  }
-  debugLogs
-    ? console.log("Editions left to create: ", abstractedIndexes)
-    : null;
-};
-
-const postProcessMetadata = (layerData) => {
-  const { abstractedIndexes, layerConfigIndex } = layerData;
-  // Metadata options
-  const savedFile = fs.readFileSync(
-    `${buildDir}/images/${abstractedIndexes[0]}${outputJPEG ? ".jpg" : ".png"}`
-  );
-  const _imageHash = hash(savedFile);
-
-  // if there's a prefix for the current configIndex, then
-  // start count back at 1 for the name, only.
-  const _prefix = layerConfigurations[layerConfigIndex].namePrefix
-    ? layerConfigurations[layerConfigIndex].namePrefix
-    : null;
-  // if resetNameIndex is turned on, calculate the offset and send it
-  // with the prefix
-  let _offset = 0;
-  if (layerConfigurations[layerConfigIndex].resetNameIndex) {
-    _offset = layerConfigurations[layerConfigIndex - 1].growEditionSizeTo;
-  }
-
-  return {
-    _imageHash,
-    _prefix,
-    _offset,
-  };
-};
-
-const outputFiles = (
-  abstractedIndexes,
-  layerData,
-  _buildDir = buildDir,
-  _canvas = canvas
-) => {
-  const { newDna, layerConfigIndex } = layerData;
-  // Save the canvas buffer to file
-  saveImage(abstractedIndexes[0], _buildDir, _canvas);
-
-  const { _imageHash, _prefix, _offset } = postProcessMetadata(layerData);
-
-  addMetadata(newDna, abstractedIndexes[0], {
-    _prefix,
-    _offset,
-    _imageHash,
-  });
-
-  saveMetaDataSingleFile(abstractedIndexes[0], _buildDir);
-  console.log(chalk.cyan(`Created edition: ${abstractedIndexes[0]}`));
-};
 
 const startCreating = async (storedDNA) => {
   if (storedDNA) {
@@ -840,8 +555,8 @@ const startCreating = async (storedDNA) => {
     let i = startIndex;
     i <=
     startIndex +
-      layerConfigurations[layerConfigurations.length - 1].growEditionSizeTo -
-      1;
+    layerConfigurations[layerConfigurations.length - 1].growEditionSizeTo -
+    1;
     i++
   ) {
     abstractedIndexes.push(i);
@@ -852,47 +567,31 @@ const startCreating = async (storedDNA) => {
   debugLogs
     ? console.log("Editions left to create: ", abstractedIndexes)
     : null;
+
+  const generatorPromises = [];
+
   while (layerConfigIndex < layerConfigurations.length) {
     const layers = layersSetup(
       layerConfigurations[layerConfigIndex].layersOrder
     );
+
+    let editionDNAs = [];
+
     while (
       editionCount <= layerConfigurations[layerConfigIndex].growEditionSizeTo
     ) {
       let newDna = createDna(layers);
+
       if (isDnaUnique(newDna)) {
-        let results = constructLayerToDna(newDna, layers);
-        debugLogs ? console.log("DNA:", newDna.split(DNA_DELIMITER)) : null;
-        let loadedElements = [];
-        // reduce the stacked and nested layer into a single array
-        const allImages = results.reduce((images, layer) => {
-          return [...images, ...layer.selectedElements];
-        }, []);
-        sortZIndex(allImages).forEach((layer) => {
-          loadedElements.push(loadLayerImg(layer));
-        });
-
-        await Promise.all(loadedElements).then((renderObjectArray) => {
-          const layerData = {
-            newDna,
-            layerConfigIndex,
-            abstractedIndexes,
-            _background: background,
-          };
-          paintLayers(ctxMain, renderObjectArray, layerData);
-          outputFiles(abstractedIndexes, layerData);
-        });
-
         // prepend the same output num (abstractedIndexes[0])
         // to the DNA as the saved files.
         dnaList.add(
-          `${abstractedIndexes[0]}/${newDna}${
-            generatedBackground ? "___" + generatedBackground : ""
+          `${abstractedIndexes[0]}/${newDna}${generatedBackground ? "___" + generatedBackground : ""
           }`
         );
         uniqueDNAList.add(filterDNAOptions(newDna));
+        editionDNAs.push(newDna);
         editionCount++;
-        abstractedIndexes.shift();
       } else {
         console.log(chalk.bgRed("DNA exists!"));
         failedCount++;
@@ -904,30 +603,36 @@ const startCreating = async (storedDNA) => {
         }
       }
     }
+
+    editionDNAs.forEach((dna) => {
+      const tokenIndex = abstractedIndexes.shift();
+
+      generatorPromises.push(
+        pool.exec('generate', [dna, layers, DNA_DELIMITER, layerConfigIndex, tokenIndex])
+      );
+    });
+
     layerConfigIndex++;
   }
-  writeMetaData(JSON.stringify(metadataList, null, 2));
+
+  Promise.all(generatorPromises).then(async (results) => {
+    // Wait for all assets to be generated before writing the combined metadata
+    writeMetaData(JSON.stringify(results, null, 2));
+    pool.terminate();
+  });
+
   writeDnaLog(JSON.stringify([...dnaList], null, 2));
 };
 
 module.exports = {
-  addAttributes,
-  addMetadata,
   buildSetup,
-  constructLayerToDna,
   cleanName,
   createDna,
   DNA_DELIMITER,
   getElements,
-  hash,
   isDnaUnique,
   layersSetup,
-  loadLayerImg,
-  outputFiles,
-  paintLayers,
   parseQueryString,
-  postProcessMetadata,
-  sortZIndex,
   startCreating,
   writeMetaData,
 };
