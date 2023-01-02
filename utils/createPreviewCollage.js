@@ -1,13 +1,15 @@
 "use strict";
 
+import fs  from "fs";
+import path from "path";
+import pkg from 'canvas';
+import { preview } from "../config.js"
+
 const isLocal = typeof process.pkg === "undefined";
 const basePath = isLocal ? process.cwd() : path.dirname(process.execPath);
-const fs = require("fs");
-const path = require("path");
-const { createCanvas, loadImage } = require("canvas");
+const { createCanvas, loadImage } = pkg
 const buildDir = `${basePath}/build`;
 
-const { preview } = require(path.join(basePath, "/src/config.js"));
 
 // read json data
 const rawdata = fs.readFileSync(`${basePath}/build/json/_metadata.json`);

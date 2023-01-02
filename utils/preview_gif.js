@@ -1,13 +1,15 @@
+import fs from "fs";
+import pkg from "canvas";
+const { createCanvas, loadImage } = pkg;
+import { format, preview_gif } from "../config.js";
+import HashlipsGiffer from "./use/HashlipsGiffer.js";
+
 const basePath = process.cwd();
-const fs = require("fs");
-const { createCanvas, loadImage } = require("canvas");
 const buildDir = `${basePath}/build`;
 const imageDir = `${buildDir}/images`;
-const { format, preview_gif } = require(`${basePath}/src/config.js`);
 const canvas = createCanvas(format.width, format.height);
 const ctx = canvas.getContext("2d");
 
-const HashlipsGiffer = require(`${basePath}/modules/HashlipsGiffer.js`);
 let hashlipsGiffer = null;
 
 const loadImg = async (_img) => {

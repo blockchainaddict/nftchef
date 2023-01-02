@@ -9,11 +9,12 @@
  *
  *
  */
-const fs = require("fs");
-const path = require("path");
+import fs from "fs";
+import path from "path";
+import chalk from "chalk";
+
 const isLocal = typeof process.pkg === "undefined";
 const basePath = isLocal ? process.cwd() : path.dirname(process.execPath);
-const chalk = require("chalk");
 
 // const imagesDir = `${basePath}/build/images`;
 const jsonDir = `${basePath}/build/json`;

@@ -1,18 +1,16 @@
 "use strict";
 
-const path = require("path");
+import path from "path";
+import fs from "fs";
+import chalk from "chalk";
+
+import { Command } from "commander";
+
 const isLocal = typeof process.pkg === "undefined";
 const basePath = isLocal ? process.cwd() : path.dirname(process.execPath);
-
-const fs = require("fs");
-const { Command } = require("commander");
 const program = new Command();
-const chalk = require("chalk");
 
-const { startCreating, buildSetup } = require(path.join(
-  basePath,
-  "/src/main.js"
-));
+import { startCreating, buildSetup } from "./src/main.js";
 
 program
   .name("generate")

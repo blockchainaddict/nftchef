@@ -1,4 +1,14 @@
 .vscode/
+
+# Lock files are not saved to hopefully help with architecture dependent
+# packages
+yarn.lock
+package-lock.json
+
+# testing snapshots
+
+*.snap
+
 # Logs
 
 logs

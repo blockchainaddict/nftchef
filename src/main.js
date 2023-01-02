@@ -1,18 +1,28 @@
 "use strict";
 
-const path = require("path");
-const isLocal = typeof process.pkg === "undefined";
-const basePath = isLocal ? process.cwd() : path.dirname(process.execPath);
-const fs = require("fs");
-const chalk = require("chalk");
+import path from "path";
+import fs from "fs";
+import chalk from "chalk";
+import pkg from "canvas";
+const { createCanvas, loadImage } = pkg;
+import Parser from "./use/Parser.js";
+import Paint from "./use/Paint.js";
+import Metadata from "./use/Metadata.js";
+import Crypto from "./use/Crypto.js";
+const moduleUrl = import.meta.url;
+const modulePath = new URL(moduleUrl).pathname;
+const __dirname = path.dirname(modulePath);
 
-const workerpool = require('workerpool');
-const pool = workerpool.pool(__dirname + '/worker.js', {
-  workerType: 'process'
+console.log("dirname", __dirname);
+
+import workerpool from "workerpool";
+
+const pool = workerpool.pool("./src/worker.js", {
+  workerType: "process",
 });
-
-console.log(path.join(basePath, "/src/config.js"));
-const {
+import {
+  background,
+  baseUri,
   buildDir,
   debugLogs,
   emptyLayerName,
@@ -26,16 +36,19 @@ const {
   traitValueOverrides,
   uniqueDnaTorrance,
   useRootTraitType,
-} = require(path.join(basePath, "/src/config.js"));
+} from "../config.js";
 
-// when generating a random background used to add to DNA
-let generatedBackground;
+const isLocal = typeof process.pkg === "undefined";
+const basePath = isLocal ? process.cwd() : path.dirname(process.execPath);
+
+console.log(path.join(basePath, "/src/config.js"));
+// const canvas = createCanvas(format.width, format.height);
+// const ctxMain = canvas.getContext("2d");
+// ctxMain.imageSmoothingEnabled = format.smoothing;
 
 let dnaList = new Set(); // internal+external: list of all files. used for regeneration etc
 let uniqueDNAList = new Set(); // internal: post-filtered dna set for bypassDNA etc.
 const DNA_DELIMITER = "*";
-
-const zflag = /(z-?\d*,)/;
 
 const buildSetup = () => {
   if (fs.existsSync(buildDir)) {
@@ -44,52 +57,6 @@ const buildSetup = () => {
   fs.mkdirSync(buildDir);
   fs.mkdirSync(path.join(buildDir, "/json"));
   fs.mkdirSync(path.join(buildDir, "/images"));
-};
-
-const getRarityWeight = (_path) => {
-  // check if there is an extension, if not, consider it a directory
-  const exp = new RegExp(`${rarityDelimiter}(\\d*)`, "g");
-  const weight = exp.exec(_path);
-  const weightNumber = weight ? Number(weight[1]) : -1;
-
-  if (weightNumber < 0 || isNaN(weightNumber)) {
-    return "required";
-  }
-  return weightNumber;
-};
-
-const cleanName = (_str) => {
-  const hasZ = zflag.test(_str);
-
-  const zRemoved = _str.replace(zflag, "");
-
-  const extension = /\.[0-9a-zA-Z]+$/;
-  const hasExtension = extension.test(zRemoved);
-  let nameWithoutExtension = hasExtension ? zRemoved.slice(0, -4) : zRemoved;
-  var nameWithoutWeight = nameWithoutExtension.split(rarityDelimiter).shift();
-  return nameWithoutWeight;
-};
-
-const parseQueryString = (filename, layer, sublayer) => {
-  const query = /\?(.*)\./;
-  const querystring = query.exec(filename);
-  if (!querystring) {
-    return getElementOptions(layer, sublayer);
-  }
-
-  const layerstyles = querystring[1].split("&").reduce((r, setting) => {
-    const keyPairs = setting.split("=");
-    return { ...r, [keyPairs[0]]: keyPairs[1] };
-  }, []);
-
-  return {
-    blendmode: layerstyles.blend
-      ? layerstyles.blend
-      : getElementOptions(layer, sublayer).blendmode,
-    opacity: layerstyles.opacity
-      ? layerstyles.opacity / 100
-      : getElementOptions(layer, sublayer).opacity,
-  };
 };
 
 /**
@@ -117,11 +84,6 @@ const getElementOptions = (layer, sublayer) => {
   return { blendmode, opacity };
 };
 
-const parseZIndex = (str) => {
-  const z = zflag.exec(str);
-  return z ? parseInt(z[0].match(/-?\d+/)[0]) : null;
-};
-
 const getElements = (path, layer) => {
   return fs
     .readdirSync(path)
@@ -130,18 +92,18 @@ const getElements = (path, layer) => {
       return !/(^|\/)\.[^\/\.]/g.test(item) && !invalid.test(item);
     })
     .map((i, index) => {
-      const name = cleanName(i);
+      const name = Parser.cleanName(i, rarityDelimiter);
       const extension = /\.[0-9a-zA-Z]+$/;
       const sublayer = !extension.test(i);
-      const weight = getRarityWeight(i);
+      const weight = Parser.getRarityWeight(i, rarityDelimiter);
 
-      const { blendmode, opacity } = parseQueryString(i, layer, name);
-      //pass along the zflag to any children
-      const zindex = zflag.exec(i)
-        ? zflag.exec(i)[0]
+      const { blendmode, opacity } = Parser.parseQueryString(i, layer, name);
+      //pass along the Parser.zflag to any children
+      const zindex = Parser.zflag.exec(i)
+        ? Parser.zflag.exec(i)[0]
         : layer.zindex
-          ? layer.zindex
-          : "";
+        ? layer.zindex
+        : "";
 
       const element = {
         sublayer,
@@ -180,13 +142,16 @@ const getElements = (path, layer) => {
         typeAncestor += 1;
       }
 
-      const parentName = cleanName(lineage[lineage.length - typeAncestor]);
+      const parentName = Parser.cleanName(
+        lineage[lineage.length - typeAncestor],
+        rarityDelimiter
+      );
 
       element.trait = layer.sublayerOptions?.[parentName]
         ? layer.sublayerOptions[parentName].trait
         : layer.trait !== undefined
-          ? layer.trait
-          : parentName;
+        ? layer.trait
+        : parentName;
 
       const rawTrait = getTraitValueFromPath(element, lineage);
       const trait = processTraitOverrides(rawTrait);
@@ -203,7 +168,9 @@ const getTraitValueFromPath = (element, lineage) => {
     return element.name;
   } else if (element.weight === "required") {
     // if the element is a png that is required, get the traitValue from the parent Dir
-    return element.sublayer ? true : cleanName(lineage[lineage.length - 2]);
+    return element.sublayer
+      ? true
+      : Parser.cleanName(lineage[lineage.length - 2]);
   }
 };
 
@@ -275,8 +242,11 @@ const filterDNAOptions = (_dna) => {
  * @returns isUnique is true if uniqueDNAList does NOT contain a match,
  *  false if uniqueDANList.has() is true
  */
-const isDnaUnique = (_dna = []) => {
+const isDnaUnique = (_dna = [], _list) => {
   const filtered = filterDNAOptions(_dna);
+  if (_list) {
+    return !_list.has(filterDNAOptions(_dna));
+  }
   return !uniqueDNAList.has(filterDNAOptions(_dna));
 };
 
@@ -331,9 +301,9 @@ function pickRandomElement(
   if (incompatibleDNA.includes(layer.name) && layer.sublayer) {
     debugLogs
       ? console.log(
-        `Skipping incompatible sublayer directory, ${layer.name}`,
-        layer.name
-      )
+          `Skipping incompatible sublayer directory, ${layer.name}`,
+          layer.name
+        )
       : null;
     return dnaSequence;
   }
@@ -344,11 +314,11 @@ function pickRandomElement(
   if (compatibleLayers.length === 0) {
     debugLogs
       ? console.log(
-        chalk.yellow(
-          "No compatible layers in the directory, skipping",
-          layer.name
+          chalk.yellow(
+            "No compatible layers in the directory, skipping",
+            layer.name
+          )
         )
-      )
       : null;
     return dnaSequence;
   }
@@ -397,9 +367,9 @@ function pickRandomElement(
       if (incompatible[currentLayers[i].name]) {
         debugLogs
           ? console.log(
-            `Adding the following to incompatible list`,
-            ...incompatible[currentLayers[i].name]
-          )
+              `Adding the following to incompatible list`,
+              ...incompatible[currentLayers[i].name]
+            )
           : null;
         incompatibleDNA.push(...incompatible[currentLayers[i].name]);
       }
@@ -407,11 +377,11 @@ function pickRandomElement(
       if (forcedCombinations[currentLayers[i].name]) {
         debugLogs
           ? console.log(
-            chalk.bgYellowBright.black(
-              `\nSetting up the folling forced combinations for ${currentLayers[i].name}: `,
-              ...forcedCombinations[currentLayers[i].name]
+              chalk.bgYellowBright.black(
+                `\nSetting up the folling forced combinations for ${currentLayers[i].name}: `,
+                ...forcedCombinations[currentLayers[i].name]
+              )
             )
-          )
           : null;
         forcedDNA.push(...forcedCombinations[currentLayers[i].name]);
       }
@@ -457,7 +427,7 @@ const sortLayers = (layers) => {
 
   let stack = { front: [], normal: [], end: [] };
   stack = nestedsort.reduce((acc, layer) => {
-    const zindex = parseZIndex(layer);
+    const zindex = Parser.parseZIndex(layer);
     if (!zindex)
       return { ...acc, normal: [...(acc.normal ? acc.normal : []), layer] };
     // move negative z into `front`
@@ -476,16 +446,14 @@ const sortLayers = (layers) => {
   return sortByZ(stack.front).concat(stack.normal).concat(sortByZ(stack.end));
 };
 
-/** File String sort by zFlag */
+/** File String sort by Parser.zFlag */
 function sortByZ(dnastrings) {
   return dnastrings.sort((a, b) => {
-    const indexA = parseZIndex(a);
-    const indexB = parseZIndex(b);
+    const indexA = Parser.parseZIndex(a);
+    const indexB = Parser.parseZIndex(b);
     return indexA - indexB;
   });
 }
-
-
 
 const createDna = (_layers) => {
   let dnaSequence = [];
@@ -520,8 +488,6 @@ const writeDnaLog = (_data) => {
   fs.writeFileSync(`${buildDir}/_dna.json`, _data);
 };
 
-
-
 function shuffle(array) {
   let currentIndex = array.length,
     randomIndex;
@@ -535,7 +501,6 @@ function shuffle(array) {
   }
   return array;
 }
-
 
 const startCreating = async (storedDNA) => {
   if (storedDNA) {
@@ -555,8 +520,8 @@ const startCreating = async (storedDNA) => {
     let i = startIndex;
     i <=
     startIndex +
-    layerConfigurations[layerConfigurations.length - 1].growEditionSizeTo -
-    1;
+      layerConfigurations[layerConfigurations.length - 1].growEditionSizeTo -
+      1;
     i++
   ) {
     abstractedIndexes.push(i);
@@ -581,12 +546,18 @@ const startCreating = async (storedDNA) => {
       editionCount <= layerConfigurations[layerConfigIndex].growEditionSizeTo
     ) {
       let newDna = createDna(layers);
+      // when generating a random background used to add to DNA
+
+      if (background) {
+        background.color = Paint.genColor(background);
+      }
 
       if (isDnaUnique(newDna)) {
         // prepend the same output num (abstractedIndexes[0])
         // to the DNA as the saved files.
         dnaList.add(
-          `${abstractedIndexes[0]}/${newDna}${generatedBackground ? "___" + generatedBackground : ""
+          `${abstractedIndexes[0]}/${newDna}${
+            background.color ? "___" + background.color : ""
           }`
         );
         uniqueDNAList.add(filterDNAOptions(newDna));
@@ -608,7 +579,14 @@ const startCreating = async (storedDNA) => {
       const tokenIndex = abstractedIndexes.shift();
 
       generatorPromises.push(
-        pool.exec('generate', [dna, layers, DNA_DELIMITER, layerConfigIndex, tokenIndex])
+        pool.exec("generate", [
+          dna,
+          layers,
+          DNA_DELIMITER,
+          layerConfigIndex,
+          background,
+          tokenIndex,
+        ])
       );
     });
 
@@ -624,15 +602,14 @@ const startCreating = async (storedDNA) => {
   writeDnaLog(JSON.stringify([...dnaList], null, 2));
 };
 
-module.exports = {
+export {
   buildSetup,
-  cleanName,
   createDna,
   DNA_DELIMITER,
   getElements,
   isDnaUnique,
   layersSetup,
-  parseQueryString,
+  getElementOptions,
   startCreating,
   writeMetaData,
 };

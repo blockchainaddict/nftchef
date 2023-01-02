@@ -11,17 +11,18 @@
  *
  */
 
-const path = require("path");
+import path from "path";
+import fs from "fs"
+import { Command } from "commander"
+import chalk from "chalk"
+import { baseUri, description } from '../src/config.js'
+
 const isLocal = typeof process.pkg === "undefined";
 const basePath = isLocal ? process.cwd() : path.dirname(process.execPath);
-const fs = require("fs");
 
 console.log(path.join(basePath, "/src/config.js"));
-const { baseUri, description } = require(path.join(basePath, "/src/config.js"));
 
-const { Command } = require("commander");
 const program = new Command();
-const chalk = require("chalk");
 
 // read json data
 let rawdata = fs.readFileSync(`${basePath}/build/json/_metadata.json`);

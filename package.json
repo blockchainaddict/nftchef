@@ -7,6 +7,7 @@
   "engines": {
     "node": ">=14"
   },
+  "type": "module",
   "pkg": {
     "assets": [
       "layers/**/*",
@@ -19,26 +20,29 @@
     "generate": "node index.js",
     "generate:solana": "node index.js && node utils/metaplex.js",
     "generate:cardano": "node index.js && node utils/cardano.js",
-    "generate:tezos": "node index.js && node utils/tezos.js",
+    "generate:tezos": "node index.js && node utils/tezos.js && node utils/use/resizeForTZ.js",
     "preview": "node utils/createPreviewCollage.js",
     "gif": "node utils/preview_gif.js",
     "update:metadata": "node utils/updateInfo.js",
     "update_info:tezos": "node tezos/updateInfo.js",
-    "resize": "node utils/resize.js",
+    "provenance": "node utils/provenance.js",
     "rarity": "node utils/rarity.js",
-    "preview": "node utils/createPreviewCollage.js"
+    "test": "vitest"
   },
   "author": "Daniel Eugene Botha (HashLips), NFTChef",
   "license": "MIT",
   "dependencies": {
     "canvas": "^2.8.0",
-    "chalk": "^4.1.2",
+    "chalk": "^5.1.2",
     "commander": "^8.2.0",
     "csv-writer": "^1.6.0",
     "eslint-plugin-node": "^11.1.0",
-    "keccak256": "^1.0.3",
-    "sharp": "^0.30.2",
     "gif-encoder-2": "^1.0.5",
+    "keccak256": "^1.0.3",
+    "sharp": "^0.31.2",
     "workerpool": "^6.3.1"
+  },
+  "devDependencies": {
+    "vitest": "^0.25.1"
   }
 }

@@ -1,12 +1,14 @@
 "use strict";
 
-const fs = require("fs");
-const path = require("path");
+import fs  from "fs";
+import path  from "path";
+import chalk  from "chalk";
+import tezosConfig from "../src/Tezos/tezos_config.js";
+
+
 const isLocal = typeof process.pkg === "undefined";
 const basePath = isLocal ? process.cwd() : path.dirname(process.execPath);
-const chalk = require("chalk");
 
-const tezosConfig = require(path.join(basePath, "/Tezos/tezos_config.js"));
 
 const jsonDir = `${basePath}/build/json`;
 

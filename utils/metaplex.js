@@ -1,23 +1,23 @@
 "use strict";
 
-const fs = require("fs");
-const path = require("path");
-const isLocal = typeof process.pkg === "undefined";
-const basePath = isLocal ? process.cwd() : path.dirname(process.execPath);
-const chalk = require("chalk");
+import fs from "fs";
+import path from "path";
+import chalk from "chalk";
 
-const {
+
+import {
   creators,
   description,
   external_url,
   NFTName,
   royaltyFee,
   symbol,
-} = require(path.join(basePath, "/Solana/solana_config.js"));
-const { startIndex, outputJPEG } = require(path.join(
-  basePath,
-  "/src/config.js"
-));
+} from "../src/Solana/solana_config.js"
+import { startIndex, outputJPEG } from "../config.js"
+
+
+const isLocal = typeof process.pkg === "undefined";
+const basePath = isLocal ? process.cwd() : path.dirname(process.execPath);
 const imagesDir = `${basePath}/build/images`;
 const jsonDir = `${basePath}/build/json`;
 
