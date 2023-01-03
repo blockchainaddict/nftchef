@@ -170,7 +170,7 @@ const getTraitValueFromPath = (element, lineage) => {
     // if the element is a png that is required, get the traitValue from the parent Dir
     return element.sublayer
       ? true
-      : Parser.cleanName(lineage[lineage.length - 2]);
+      : Parser.cleanName(lineage[lineage.length - 2], rarityDelimiter);
   }
 };
 
@@ -199,6 +199,7 @@ const layersSetup = (layersOrder) => {
         layerObj.options?.["bypassDNA"] !== undefined
           ? layerObj.options?.["bypassDNA"]
           : false,
+      ...layerObj,
     };
   });
 
@@ -411,50 +412,6 @@ function pickRandomElement(
   }
 }
 
-/**
- * given the nesting structure is complicated and messy, the most reliable way to sort
- * is based on the number of nested indecies.
- * This sorts layers stacking the most deeply nested grandchildren above their
- * immediate ancestors
- * @param {[String]} layers array of dna string sequences
- */
-const sortLayers = (layers) => {
-  const nestedsort = layers.sort((a, b) => {
-    const addressA = a.split(":")[0];
-    const addressB = b.split(":")[0];
-    return addressA.length - addressB.length;
-  });
-
-  let stack = { front: [], normal: [], end: [] };
-  stack = nestedsort.reduce((acc, layer) => {
-    const zindex = Parser.parseZIndex(layer);
-    if (!zindex)
-      return { ...acc, normal: [...(acc.normal ? acc.normal : []), layer] };
-    // move negative z into `front`
-    if (zindex < 0)
-      return { ...acc, front: [...(acc.front ? acc.front : []), layer] };
-    // move positive z into `end`
-    if (zindex > 0)
-      return { ...acc, end: [...(acc.end ? acc.end : []), layer] };
-    // make sure front and end are sorted
-    // contat everything back to an ordered array
-  }, stack);
-
-  // sort the normal array
-  stack.normal.sort();
-
-  return sortByZ(stack.front).concat(stack.normal).concat(sortByZ(stack.end));
-};
-
-/** File String sort by Parser.zFlag */
-function sortByZ(dnastrings) {
-  return dnastrings.sort((a, b) => {
-    const indexA = Parser.parseZIndex(a);
-    const indexB = Parser.parseZIndex(b);
-    return indexA - indexB;
-  });
-}
-
 const createDna = (_layers) => {
   let dnaSequence = [];
   let incompatibleDNA = [];
@@ -471,10 +428,10 @@ const createDna = (_layers) => {
       layer.bypassDNA ? "?bypassDNA=true" : "",
       layer.zindex ? layer.zIndex : ""
     );
-    const sortedLayers = sortLayers(layerSequence);
+    const sortedLayers = Paint.sortLayers(layerSequence);
     dnaSequence = [...dnaSequence, [sortedLayers]];
   });
-  const zSortDNA = sortByZ(dnaSequence.flat(2));
+  const zSortDNA = Paint.sortByZ(dnaSequence.flat(2));
   const dnaStrand = zSortDNA.join(DNA_DELIMITER);
 
   return dnaStrand;
@@ -609,6 +566,7 @@ export {
   getElements,
   isDnaUnique,
   layersSetup,
+  pickRandomElement,
   getElementOptions,
   startCreating,
   writeMetaData,
