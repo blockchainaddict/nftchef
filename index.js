@@ -3,18 +3,19 @@
 import path from "path";
 import fs from "fs";
 import chalk from "chalk";
-
+import Paint from "./src/use/Paint.js";
+import Base from "./src/use/Base.js";
+import * as Config from "./config.js";
 import { Command } from "commander";
 
 const isLocal = typeof process.pkg === "undefined";
 const basePath = isLocal ? process.cwd() : path.dirname(process.execPath);
 const program = new Command();
 
-import { startCreating, buildSetup } from "./src/main.js";
+import { startCreating } from "./src/main.js";
 
 program
   .name("generate")
-
   .option("-c, --continue <dna>", "Continues generatino using a _dna.json file")
   .action((options) => {
     console.log(chalk.green("genator started"), options.continue);
@@ -23,7 +24,7 @@ program
           chalk.bgCyanBright("\n continuing generation using _dna.json file \n")
         )
       : null;
-    buildSetup();
+    Base.buildSetup(Config.buildDir);
     let dna = null;
     if (options.continue) {
       const storedGenomes = JSON.parse(fs.readFileSync(options.continue));

@@ -3,6 +3,8 @@ import path from "path";
 import keccak256 from "keccak256";
 import fs from "fs";
 import chalk from "chalk";
+import Parser from "./use/Parser.js";
+import Paint from "./use/Paint.js";
 
 console.log({ workerpool });
 
@@ -63,24 +65,6 @@ const addMetadata = (_dna, _edition, _prefixData) => {
   return tempMetadata;
 };
 
-const addAttributes = (_element) => {
-  let selectedElement = _element.layer;
-  const layerAttributes = {
-    trait_type: _element.layer.trait,
-    value: selectedElement.traitValue,
-    ...(_element.layer.display_type !== undefined && {
-      display_type: _element.layer.display_type,
-    }),
-  };
-  if (
-    attributesList.some(
-      (attr) => attr.trait_type === layerAttributes.trait_type
-    )
-  )
-    return;
-  attributesList.push(layerAttributes);
-};
-
 const loadLayerImg = async (_layer) => {
   return new Promise(async (resolve) => {
     // selected elements is an array.
@@ -90,41 +74,6 @@ const loadLayerImg = async (_layer) => {
     resolve({ layer: _layer, loadedImage: image });
   });
 };
-
-const drawElement = (_renderObject) => {
-  const layerCanvas = createCanvas(format.width, format.height);
-  const layerctx = layerCanvas.getContext("2d");
-  layerctx.imageSmoothingEnabled = format.smoothing;
-
-  layerctx.drawImage(
-    _renderObject.loadedImage,
-    0,
-    0,
-    format.width,
-    format.height
-  );
-
-  addAttributes(_renderObject);
-  return layerCanvas;
-};
-
-/**
- * Sorting by index based on the layer.z property
- * @param {Array } layers selected Image layer objects array
- */
-function sortZIndex(layers) {
-  const parseZIndex = (str) => {
-    const zflag = /(z-?\d*,)/;
-    const z = zflag.exec(str);
-    return z ? parseInt(z[0].match(/-?\d+/)[0]) : null;
-  };
-
-  return layers.sort((a, b) => {
-    const indexA = parseZIndex(a.zindex);
-    const indexB = parseZIndex(b.zindex);
-    return indexA - indexB;
-  });
-}
 
 const saveMetaDataSingleFile = (_editionCount, _buildDir) => {
   let metadata = metadataList.find((meta) => meta.edition == _editionCount);
@@ -137,40 +86,6 @@ const saveMetaDataSingleFile = (_editionCount, _buildDir) => {
     `${_buildDir}/json/${_editionCount}.json`,
     JSON.stringify(metadata, null, 2)
   );
-};
-
-/**
- * Paints the given renderOjects to the main canvas context.
- *
- * @param {Array} renderObjectArray Array of render elements to draw to canvas
- * @param {Object} layerData data passed from the current iteration of the loop or configured dna-set
- *
- */
-const paintLayers = (canvasContext, renderObjectArray, layerData) => {
-  debugLogs ? console.log("\nClearing canvas") : null;
-  canvasContext.clearRect(0, 0, format.width, format.height);
-
-  const { _background } = layerData;
-
-  renderObjectArray.forEach((renderObject) => {
-    // one main canvas
-    // each render Object should be a solo canvas
-    // append them all to main canbas
-    canvasContext.globalAlpha = renderObject.layer.opacity;
-    canvasContext.globalCompositeOperation = renderObject.layer.blendmode;
-    canvasContext.drawImage(
-      drawElement(renderObject),
-      0,
-      0,
-      format.width,
-      format.height
-    );
-  });
-
-  if (_background.generate) {
-    canvasContext.globalCompositeOperation = "destination-over";
-    drawBackground(canvasContext, _background);
-  }
 };
 
 const postProcessMetadata = (layerData) => {
@@ -233,17 +148,6 @@ const outputFiles = (
   return metadata;
 };
 
-const cleanDna = (_str) => {
-  var dna = _str.split(":").shift();
-  return dna;
-};
-
-const drawBackground = (canvasContext, background) => {
-  canvasContext.fillStyle = background.HSL ?? background.color;
-
-  canvasContext.fillRect(0, 0, format.width, format.height);
-};
-
 const saveImage = (_editionCount, _buildDir, _canvas) => {
   fs.writeFileSync(
     `${_buildDir}/images/${_editionCount}${outputJPEG ? ".jpg" : ".png"}`,
@@ -260,13 +164,14 @@ async function generate(
   tokenIndex
 ) {
   const dna = _dna.split(DNA_DELIMITER);
+
   let mappedDnaToLayers = _layers.map((layer, index) => {
     let selectedElements = [];
     const layerImages = dna.filter(
       (element) => element.split(".")[0] == layer.id
     );
     layerImages.forEach((img) => {
-      const indexAddress = cleanDna(img);
+      const indexAddress = Parser.cleanDna(img);
 
       //
 
@@ -304,7 +209,7 @@ async function generate(
   const allImages = results.reduce((images, layer) => {
     return [...images, ...layer.selectedElements];
   }, []);
-  sortZIndex(allImages).forEach((layer) => {
+  Paint.sortZIndex(allImages).forEach((layer) => {
     loadedElements.push(loadLayerImg(layer));
   });
 
@@ -316,7 +221,7 @@ async function generate(
     tokenIndex,
     _background: background,
   };
-  paintLayers(ctxMain, renderObjectArray, layerData);
+  Paint.paintLayers(ctxMain, renderObjectArray, layerData, format);
 
   const metadata = outputFiles(tokenIndex, layerData);
   return metadata;

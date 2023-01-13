@@ -50,15 +50,6 @@ let dnaList = new Set(); // internal+external: list of all files. used for regen
 let uniqueDNAList = new Set(); // internal: post-filtered dna set for bypassDNA etc.
 const DNA_DELIMITER = "*";
 
-const buildSetup = () => {
-  if (fs.existsSync(buildDir)) {
-    fs.rmdirSync(buildDir, { recursive: true });
-  }
-  fs.mkdirSync(buildDir);
-  fs.mkdirSync(path.join(buildDir, "/json"));
-  fs.mkdirSync(path.join(buildDir, "/images"));
-};
-
 /**
  * Get't the layer options from the parent, or grandparent layer if
  * defined, otherwise, sets default options.
@@ -553,14 +544,13 @@ const startCreating = async (storedDNA) => {
   Promise.all(generatorPromises).then(async (results) => {
     // Wait for all assets to be generated before writing the combined metadata
     writeMetaData(JSON.stringify(results, null, 2));
+    Metadata.layerMap();
     pool.terminate();
+    writeDnaLog(JSON.stringify([...dnaList], null, 2));
   });
-
-  writeDnaLog(JSON.stringify([...dnaList], null, 2));
 };
 
 export {
-  buildSetup,
   createDna,
   DNA_DELIMITER,
   getElements,
