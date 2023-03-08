@@ -1,6 +1,8 @@
 "use strict";
 
 import path from "path";
+import fs from "fs";
+
 const isLocal = typeof process.pkg === "undefined";
 const basePath = isLocal ? process.cwd() : path.dirname(process.execPath);
 
@@ -19,7 +21,7 @@ const description =
   "This is the description of your NFT project, remember to replace this";
 const baseUri = "ipfs://NewUriToReplace";
 
-const outputJPEG = false; // if false, the generator outputs png's
+const outputJPEG = true; // if false, the generator outputs png's
 
 /**
  * Set your tokenID index start number.
@@ -40,21 +42,23 @@ const background = {
 
 const layerConfigurations = [
   {
-    growEditionSizeTo: 10,
+    growEditionSizeTo: 3,
     namePrefix: "Series 2", // Use to add a name to Metadata `name:`
     layersOrder: [
       { name: "Background" },
       {
         name: "Back Accessory",
-        // options: {
-        //   bypassDNA: true,
-        // },
+        trait: "BOCK POCK",
+        options: {
+          bypassDNA: true,
+        },
       },
       { name: "Head" },
       { name: "Clothes" },
       { name: "Eyes" },
       { name: "Hair" },
-      { name: "Accessory" },
+      { name: "Items" },
+      { name: "Items2", trait: "Items2" },
       { name: "Shirt Accessories" },
     ],
   },
@@ -92,12 +96,33 @@ const emptyLayerName = "NONE";
  * The current version requires all layers to have unique names, or you may
  * accidentally set incompatibilities for the _wrong_ item.
  */
-const incompatible = {
-  //   Red: ["Dark Long"],
-  //   // directory incompatible with directory example
-  //   White: ["rare-Pink-Pompadour"],
+const zflag = /(z-?\d*,)/;
+const rarityDelimiter = "#";
+const cleanName = (_str) => {
+  const hasZ = zflag.test(_str);
+
+  const zRemoved = _str.replace(zflag, "");
+
+  const extension = /\.[0-9a-zA-Z]+$/;
+  const hasExtension = extension.test(zRemoved);
+  let nameWithoutExtension = hasExtension ? zRemoved.slice(0, -4) : zRemoved;
+  var nameWithoutWeight = nameWithoutExtension.split(rarityDelimiter).shift();
+  return nameWithoutWeight;
 };
 
+const incompatible = {};
+
+const ITEMS = fs
+  .readdirSync(path.join(layersDir, "Items"))
+  .filter((file) => file !== ".DS_Store")
+  .map((head) => cleanName(head))
+  .filter((value) => value !== "NONE"); // skip NONE
+
+// ITEMS.forEach((item) => {
+//   incompatible[item] = [item];
+// });
+
+console.log({ ITEMS, incompatible });
 /**
  * Require combinations of files when constructing DNA, this bypasses the
  * randomization and weights.
@@ -150,8 +175,6 @@ const extraAttributes = () => [
 
 // Outputs an Keccack256 hash for the image. Required for provenance hash
 const hashImages = true;
-
-const rarityDelimiter = "#";
 
 const uniqueDnaTorrance = 10000;
 

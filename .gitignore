@@ -8,6 +8,7 @@ package-lock.json
 # testing snapshots
 
 *.snap
+layers/**/*.png
 
 # Logs
 

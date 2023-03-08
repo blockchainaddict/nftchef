@@ -20,7 +20,8 @@ import workerpool from "workerpool";
 const pool = workerpool.pool("./src/worker.js", {
   workerType: "process",
 });
-import {
+import * as Config from "../config.js";
+const {
   background,
   baseUri,
   buildDir,
@@ -36,7 +37,7 @@ import {
   traitValueOverrides,
   uniqueDnaTorrance,
   useRootTraitType,
-} from "../config.js";
+} = Config;
 
 const isLocal = typeof process.pkg === "undefined";
 const basePath = isLocal ? process.cwd() : path.dirname(process.execPath);
@@ -175,6 +176,7 @@ const processTraitOverrides = (trait) => {
 };
 
 const layersSetup = (layersOrder) => {
+  console.log("layers dir", layersDir);
   const layers = layersOrder.map((layerObj, index) => {
     return {
       id: index,

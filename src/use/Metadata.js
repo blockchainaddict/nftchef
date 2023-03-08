@@ -77,7 +77,7 @@ export default {
       date: dateTime,
       ...extraMetadata,
       attributes: cleanedAttrs,
-      compiler: "HashLips Art Engine - NFTChef fork",
+      compiler: "NFTChef 2.0.0 Beta",
     };
     this.metadataList.push(tempMetadata);
     this.attributesList = [];

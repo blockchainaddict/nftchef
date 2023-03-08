@@ -5,6 +5,7 @@ import fs from "fs";
 import chalk from "chalk";
 import Parser from "./use/Parser.js";
 import Paint from "./use/Paint.js";
+import Metadata from "./use/Metadata.js";
 
 console.log({ workerpool });
 
@@ -30,41 +31,6 @@ const canvas = createCanvas(format.width, format.height);
 const ctxMain = canvas.getContext("2d");
 ctxMain.imageSmoothingEnabled = format.smoothing;
 
-let attributesList = [];
-let metadataList = [];
-
-// when generating a random background used to add to DNA
-
-const addMetadata = (_dna, _edition, _prefixData) => {
-  let dateTime = Date.now();
-  const { _prefix, _offset, _imageHash } = _prefixData;
-
-  const combinedAttrs = [...attributesList, ...extraAttributes()];
-  const cleanedAttrs = combinedAttrs.reduce((acc, current) => {
-    const x = acc.find((item) => item.trait_type === current.trait_type);
-    if (!x) {
-      return acc.concat([current]);
-    } else {
-      return acc;
-    }
-  }, []);
-
-  let tempMetadata = {
-    name: `${_prefix ? _prefix + " " : ""}#${_edition - _offset}`,
-    description: description,
-    image: `${baseUri}/${_edition}${outputJPEG ? ".jpg" : ".png"}`,
-    ...(hashImages === true && { imageHash: _imageHash }),
-    edition: _edition,
-    date: dateTime,
-    ...extraMetadata,
-    attributes: cleanedAttrs,
-    compiler: "HashLips Art Engine - NFTChef fork",
-  };
-  metadataList.push(tempMetadata);
-  attributesList = [];
-  return tempMetadata;
-};
-
 const loadLayerImg = async (_layer) => {
   return new Promise(async (resolve) => {
     // selected elements is an array.
@@ -76,7 +42,9 @@ const loadLayerImg = async (_layer) => {
 };
 
 const saveMetaDataSingleFile = (_editionCount, _buildDir) => {
-  let metadata = metadataList.find((meta) => meta.edition == _editionCount);
+  let metadata = Metadata.metadataList.find(
+    (meta) => meta.edition == _editionCount
+  );
   debugLogs
     ? console.log(
         `Writing metadata for ${_editionCount}: ${JSON.stringify(metadata)}`
@@ -130,13 +98,13 @@ const outputFiles = (
   _buildDir = buildDir,
   _canvas = canvas
 ) => {
-  const { newDna, layerConfigIndex } = layerData;
+  const { dna, layerConfigIndex } = layerData;
   // Save the canvas buffer to file
   saveImage(tokenIndex, _buildDir, _canvas);
 
   const { _imageHash, _prefix, _offset } = postProcessMetadata(layerData);
 
-  const metadata = addMetadata(newDna, tokenIndex, {
+  const metadata = Metadata.addMetadata(dna, tokenIndex, {
     _prefix,
     _offset,
     _imageHash,

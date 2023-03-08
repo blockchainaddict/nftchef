@@ -12,10 +12,10 @@
  */
 
 import path from "path";
-import fs from "fs"
-import { Command } from "commander"
-import chalk from "chalk"
-import { baseUri, description } from '../src/config.js'
+import fs from "fs";
+import { Command } from "commander";
+import chalk from "chalk";
+import { baseUri, description, outputJPEG } from "../config.js";
 
 const isLocal = typeof process.pkg === "undefined";
 const basePath = isLocal ? process.cwd() : path.dirname(process.execPath);
@@ -57,8 +57,9 @@ program
      * insead of the loop index as images may have a different order.
      */
     data.forEach((item) => {
-      item.image = `${baseUri}/${item.edition}.png`;
-      item.description = description;
+      item.image = `${baseUri}/${item.edition}.${outputJPEG ? "jpg" : "png"}`;
+      // item.description = description;
+      delete item.description;
 
       if (options.name) {
         console.log(chalk.yellow(`Renaming token to ${options.name}`));
